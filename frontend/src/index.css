@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  --color-background: #060e20;
+  --color-surface: #060e20;
+  --color-surface-container: #0f1930;
+  --color-surface-container-high: #141f38;
+  --color-surface-container-highest: #192540;
+  --color-surface-container-low: #091328;
+  --color-surface-container-lowest: #000000;
+  --color-surface-bright: #1f2b49;
+  --color-surface-variant: #192540;
+
+  --color-primary: #bd9dff;
+  --color-primary-dim: #8a4cfc;
+  --color-primary-light: #d4baff;
+  --color-on-primary-fixed: #000000;
+  --color-on-primary: #1a0044;
+
+  --color-tertiary: #ff97b2;
+
+  --color-secondary: #c38bf5;
+  --color-secondary-container: #612b8f;
+
+  --color-error: #ff6e84;
+
+  --color-on-surface: #dee5ff;
+  --color-on-surface-variant: #a3aac4;
+
+  --color-outline: #6d758c;
+  --color-outline-variant: #40485d;
+
+  --radius-xl: 1.5rem;
+  --radius-md: 0.75rem;
+}
+
+@layer base {
+  :root {
+    --primary-rgb: 189, 157, 255;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    color: var(--color-on-surface);
+  }
+}
+
+/* Glassmorphism utility */
+@utility glass {
+  background-color: color-mix(in srgb, var(--color-surface-variant) 60%, transparent);
+  backdrop-filter: blur(24px);
+}
+
+/* Tonal Layering Utilities */
+@utility shadow-ambient {
+  box-shadow: 0px 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Ghost border utility */
+@utility border-ghost {
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 15%, transparent);
+}
+@utility border-ghost-primary {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+}
+
+/* Scrollbar hide utility */
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Premium custom vertical scrollbar */
+@utility custom-scroll-y {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 30%, transparent) transparent;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  }
+}
+
+/* Premium custom horizontal scrollbar */
+@utility custom-scroll-x {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 30%, transparent) transparent;
+  
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: 9999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  }
+}
