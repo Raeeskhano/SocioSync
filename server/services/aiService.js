@@ -130,7 +130,7 @@ const generateImages = async (userPrompt) => {
     }
   }
 
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}&nologo=true`;
+  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}`;
   
   // Return the URL directly to the frontend to avoid server-side IP blocking (402) and long timeouts
   console.log(`[AI Service] Masterpiece URL generated (Fallback): ${pollUrl}`);
