@@ -111,7 +111,7 @@ const generateImages = async (userPrompt) => {
   try {
     console.log(`[AI Service] Attempting Hugging Face generation...`);
     const hfResponse = await axios.post(
-      "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
       { inputs: anchorPrompt },
       {
         headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
