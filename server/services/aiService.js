@@ -108,7 +108,7 @@ const generateImages = async (userPrompt) => {
   
   // We use Pollinations AI to bypass Vercel's strict 10-second Serverless timeout.
   // Generating a URL takes 1ms, so the backend never times out. The browser handles the long image generation download.
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}`;
+  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?seed=${randomSeed}`;
   
   console.log(`[AI Service] Masterpiece URL generated: ${pollUrl}`);
   return [pollUrl];
