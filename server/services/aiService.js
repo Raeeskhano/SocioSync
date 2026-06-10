@@ -125,8 +125,13 @@ const generateImages = async (userPrompt) => {
   } catch (err) {
     console.error(`[AI Service] Hugging Face failed: ${err.message}`);
     if (err.response) {
-      const errorMsg = err.response.data.toString();
+      const errorMsg = err.response.data ? Buffer.from(err.response.data).toString('utf-8') : err.message;
       console.error(errorMsg);
+      
+      if (err.response.status === 503 && errorMsg.includes('loading')) {
+         throw new Error('The AI model is currently warming up! Please click generate again in about 15 seconds.');
+      }
+      
       throw new Error(`Hugging Face API Error: ${errorMsg}`);
     }
     throw new Error('Failed to generate image with Hugging Face. Please try again later.');
