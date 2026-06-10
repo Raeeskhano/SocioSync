@@ -104,44 +104,14 @@ const generateImages = async (userPrompt) => {
     console.log(`[AI Service] Masterpiece Anchor: ${anchorPrompt}`);
   } catch (err) { /* fallback */ }
 
-  if (!process.env.HF_TOKEN) {
-    throw new Error('HF_TOKEN is missing. Hugging Face token is required for image generation.');
-  }
-
-  try {
-    console.log(`[AI Service] Attempting Hugging Face generation...`);
-    const hfResponse = await axios.post(
-      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
-      { inputs: anchorPrompt },
-      {
-        headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
-        responseType: 'arraybuffer',
-        timeout: 45000
-      }
-    );
-    const base64 = `data:image/jpeg;base64,${Buffer.from(hfResponse.data).toString('base64')}`;
-    console.log(`[AI Service] Hugging Face SUCCESS!`);
-    return [base64];
-  } catch (err) {
-    console.error(`[AI Service] Hugging Face failed: ${err.message}`);
-    if (err.response) {
-      const errorMsg = err.response.data ? Buffer.from(err.response.data).toString('utf-8') : err.message;
-      console.error(errorMsg);
-      
-      if (err.response.status === 503 && errorMsg.includes('loading')) {
-         const warmupError = new Error('The AI model is currently warming up! Please click generate again in about 15 seconds.');
-         warmupError.statusCode = 503;
-         throw warmupError;
-      }
-      
-      const hfError = new Error(`Hugging Face API Error: ${errorMsg}`);
-      hfError.statusCode = err.response.status;
-      throw hfError;
-    }
-    const genericError = new Error('Failed to generate image with Hugging Face. Please try again later.');
-    genericError.statusCode = 500;
-    throw genericError;
-  }
+  const randomSeed = Math.floor(Math.random() * 1000000);
+  
+  // We use Pollinations AI to bypass Vercel's strict 10-second Serverless timeout.
+  // Generating a URL takes 1ms, so the backend never times out. The browser handles the long image generation download.
+  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}`;
+  
+  console.log(`[AI Service] Masterpiece URL generated: ${pollUrl}`);
+  return [pollUrl];
 };
 
 const rewriteCaption = async (caption, tone) => {
