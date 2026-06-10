@@ -6,6 +6,7 @@ const {
   suggestDrafts,
   generateCopy,
   generateImages,
+  saveImageCreation,
   rewriteCaption,
   getRecentCreations,
   exportCreation
@@ -27,6 +28,7 @@ router.post('/suggest-drafts', aiRateLimiter, suggestDrafts);
 router.post('/rewrite-caption', aiRateLimiter, rewriteCaption);
 router.post('/generate-copy', aiRateLimiter, generateCopy);
 router.post('/generate-images', aiRateLimiter, generateImages);
+router.post('/save-image', saveImageCreation);
 router.get('/recent-creations', getRecentCreations);
 router.post('/export', aiRateLimiter, exportCreation);
 

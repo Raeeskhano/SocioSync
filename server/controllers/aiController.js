@@ -55,14 +55,29 @@ const generateCopy = async (req, res, next) => {
 const generateImages = async (req, res, next) => {
   try {
     const { prompt } = req.body;
-    const userId = req.user.id;
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Visual prompt is required.' });
     }
 
-    const imageUrls = await aiService.generateImages(prompt);
-    
+    // Get the enhanced prompt and HF token so frontend can fetch directly
+    const config = await aiService.generateImages(prompt);
+
+    res.status(200).json({ success: true, data: config });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const saveImageCreation = async (req, res, next) => {
+  try {
+    const { prompt, imageUrls } = req.body;
+    const userId = req.user.id;
+
+    if (!imageUrls || imageUrls.length === 0) {
+      return res.status(400).json({ success: false, message: 'Image URLs are required.' });
+    }
+
     const creation = await AiCreation.create({
       userId,
       type: 'image',
@@ -70,7 +85,7 @@ const generateImages = async (req, res, next) => {
       imageUrls
     });
 
-    res.status(200).json({ success: true, data: { imageUrls, creationId: creation._id } });
+    res.status(200).json({ success: true, data: { creationId: creation._id } });
   } catch (error) {
     next(error);
   }
@@ -144,6 +159,7 @@ module.exports = {
   suggestDrafts,
   generateCopy,
   generateImages,
+  saveImageCreation,
   rewriteCaption,
   getRecentCreations,
   exportCreation

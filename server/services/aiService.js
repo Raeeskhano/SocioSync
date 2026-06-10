@@ -104,14 +104,16 @@ const generateImages = async (userPrompt) => {
     console.log(`[AI Service] Masterpiece Anchor: ${anchorPrompt}`);
   } catch (err) { /* fallback */ }
 
-  const randomSeed = Math.floor(Math.random() * 1000000);
-  
-  // We use Pollinations AI to bypass Vercel's strict 10-second Serverless timeout.
-  // Generating a URL takes 1ms, so the backend never times out. The browser handles the long image generation download.
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?seed=${randomSeed}`;
-  
-  console.log(`[AI Service] Masterpiece URL generated: ${pollUrl}`);
-  return [pollUrl];
+  if (!process.env.HF_TOKEN) {
+    throw new Error('HF_TOKEN is missing in Vercel environment variables.');
+  }
+
+  // Return the prompt and token so the frontend can generate the image directly,
+  // bypassing Vercel's strict 10-second serverless timeout entirely.
+  return {
+    enhancedPrompt: anchorPrompt,
+    hfToken: process.env.HF_TOKEN
+  };
 };
 
 const rewriteCaption = async (caption, tone) => {

@@ -17,7 +17,13 @@ const aiService = {
   },
 
   generateImages: async (prompt) => {
+    // This just returns the HF token and enhanced prompt
     const response = await axiosInstance.post('/ai/generate-images', { prompt });
+    return response.data.data;
+  },
+
+  saveImageCreation: async (prompt, imageUrls) => {
+    const response = await axiosInstance.post('/ai/save-image', { prompt, imageUrls });
     return response.data.data;
   },
 

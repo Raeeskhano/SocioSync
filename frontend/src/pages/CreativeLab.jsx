@@ -87,19 +87,59 @@ const CreativeLab = () => {
     try {
       console.log('Starting image generation for:', imagePrompt);
       setGeneratingImages(true);
-      const result = await aiService.generateImages(imagePrompt);
-      console.log('Image Generation Result:', result);
       
-      if (result && result.imageUrls) {
-        setImageOutputs(result.imageUrls);
-        setCurrentImageCreationId(result.creationId);
-        setImageLoaded(false); // Reset loaded state for new image
-        console.log('Set image outputs:', result.imageUrls);
+      // 1. Get the enhanced prompt and HF Token from backend
+      const config = await aiService.generateImages(imagePrompt);
+      console.log('Received config from backend:', config);
+      
+      if (!config || !config.hfToken) {
+        throw new Error("Missing Hugging Face token from backend");
       }
-      fetchHistory();
+
+      // 2. Fetch directly from Hugging Face from the browser to bypass Vercel timeouts
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${config.hfToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: config.enhancedPrompt })
+        }
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        if (response.status === 503 && errText.includes('loading')) {
+          throw new Error("The AI model is currently warming up! Please try again in about 15 seconds.");
+        }
+        throw new Error(`Hugging Face API Error: ${errText}`);
+      }
+
+      const blob = await response.blob();
+      
+      // Convert Blob to Base64 to save to MongoDB
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        setImageOutputs([base64data]);
+        setImageLoaded(false);
+
+        // 3. Save the creation to the backend
+        try {
+          const saved = await aiService.saveImageCreation(imagePrompt, [base64data]);
+          setCurrentImageCreationId(saved.creationId);
+          fetchHistory();
+        } catch (saveErr) {
+          console.error("Failed to save to history", saveErr);
+        }
+      };
+
     } catch (err) {
       console.error('Generate Images Error:', err);
-      const msg = err.response?.data?.message || 'Failed to generate images. Check your Hugging Face token.';
+      const msg = err.message || err.response?.data?.message || 'Failed to generate images. Please try again.';
       showToast(msg, 'error');
     } finally {
       setGeneratingImages(false);
