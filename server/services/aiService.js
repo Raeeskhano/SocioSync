@@ -111,7 +111,7 @@ const generateImages = async (userPrompt) => {
   try {
     console.log(`[AI Service] Attempting Hugging Face generation...`);
     const hfResponse = await axios.post(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
       { inputs: anchorPrompt },
       {
         headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
@@ -129,12 +129,18 @@ const generateImages = async (userPrompt) => {
       console.error(errorMsg);
       
       if (err.response.status === 503 && errorMsg.includes('loading')) {
-         throw new Error('The AI model is currently warming up! Please click generate again in about 15 seconds.');
+         const warmupError = new Error('The AI model is currently warming up! Please click generate again in about 15 seconds.');
+         warmupError.statusCode = 503;
+         throw warmupError;
       }
       
-      throw new Error(`Hugging Face API Error: ${errorMsg}`);
+      const hfError = new Error(`Hugging Face API Error: ${errorMsg}`);
+      hfError.statusCode = err.response.status;
+      throw hfError;
     }
-    throw new Error('Failed to generate image with Hugging Face. Please try again later.');
+    const genericError = new Error('Failed to generate image with Hugging Face. Please try again later.');
+    genericError.statusCode = 500;
+    throw genericError;
   }
 };
 
