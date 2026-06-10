@@ -41,6 +41,7 @@ const CreativeLab = () => {
   
   const [generatingText, setGeneratingText] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 
@@ -92,6 +93,7 @@ const CreativeLab = () => {
       if (result && result.imageUrls) {
         setImageOutputs(result.imageUrls);
         setCurrentImageCreationId(result.creationId);
+        setImageLoaded(false); // Reset loaded state for new image
         console.log('Set image outputs:', result.imageUrls);
       }
       fetchHistory();
@@ -145,6 +147,7 @@ const CreativeLab = () => {
       setImagePrompt(item.prompt || '');
       setImageOutputs(item.imageUrls || []);
       setCurrentImageCreationId(item.id);
+      setImageLoaded(false); // Reset loaded state when selecting history
       // Scroll to image generator
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -288,23 +291,35 @@ const CreativeLab = () => {
 
           <div className="flex flex-col items-center">
             {imageOutputs && imageOutputs.length > 0 ? (
-              <div className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden border-ghost shadow-xl group relative bg-surface-container-low mx-auto">
+              <div className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden border-ghost shadow-xl group relative bg-surface-container-low mx-auto flex items-center justify-center">
+                {!imageLoaded && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-surface-container-low z-10">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    <p className="text-sm text-on-surface-variant animate-pulse font-medium">Generating your masterpiece...</p>
+                  </div>
+                )}
                 <img 
+                  key={imageOutputs[0]}
                   src={imageOutputs[0]} 
                   alt="AI Masterpiece" 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  referrerPolicy="no-referrer"
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageLoaded(true)}
+                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                 />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                  <a 
-                    href={imageOutputs[0]} 
-                    download="SocioSync_Masterpiece.png"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-colors"
-                  >
-                      <Download className="w-6 h-6" />
-                  </a>
-                </div>
+                {imageLoaded && (
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 z-20">
+                    <a 
+                      href={imageOutputs[0]} 
+                      download="SocioSync_Masterpiece.png"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 bg-white/20 backdrop-blur-md text-white rounded-full hover:bg-white/40 transition-colors"
+                    >
+                        <Download className="w-6 h-6" />
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="w-full max-w-lg aspect-square rounded-3xl bg-surface-container-low border-2 border-ghost border-dashed flex flex-col items-center justify-center gap-4 text-on-surface-variant/30">
@@ -349,7 +364,7 @@ const CreativeLab = () => {
             >
               <div className="w-12 h-12 rounded-xl bg-surface-container-high border-ghost flex items-center justify-center group-hover:bg-primary/20 transition-colors overflow-hidden">
                 {item.thumbnailUrl ? (
-                    <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={item.thumbnailUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" />
                 ) : (
                     <Type className="w-5 h-5 text-on-surface-variant group-hover:text-primary transition-colors" />
                 )}
@@ -402,7 +417,7 @@ const CreativeLab = () => {
                   >
                     <div className="aspect-video w-full rounded-xl bg-surface-container-low border-ghost overflow-hidden flex items-center justify-center relative">
                       {item.thumbnailUrl ? (
-                        <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                        <img src={item.thumbnailUrl} referrerPolicy="no-referrer" alt="" className="w-full h-full object-cover" />
                       ) : (
                         <Type className="w-8 h-8 text-on-surface-variant/30" />
                       )}

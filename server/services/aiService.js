@@ -105,17 +105,36 @@ const generateImages = async (userPrompt) => {
   } catch (err) { /* fallback */ }
 
   const randomSeed = Math.floor(Math.random() * 1000000);
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}&model=flux&nologo=true`;
   
-  try {
-    const response = await axios.get(pollUrl, { responseType: 'arraybuffer', timeout: 60000 });
-    const base64 = `data:image/png;base64,${Buffer.from(response.data).toString('base64')}`;
-    console.log(`[AI Service] Masterpiece SUCCESS!`);
-    return [base64]; // Return as array for compatibility
-  } catch (error) {
-    console.error(`[AI Service] Masterpiece failed, falling back to URL.`);
-    return [pollUrl];
+  // Try Hugging Face first if token is available
+  if (process.env.HF_TOKEN) {
+    try {
+      console.log(`[AI Service] Attempting Hugging Face generation...`);
+      // Use router.huggingface.co as it resolves more reliably than api-inference
+      const hfResponse = await axios.post(
+        "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3.5-large",
+        { inputs: anchorPrompt },
+        {
+          headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
+          responseType: 'arraybuffer',
+          timeout: 45000
+        }
+      );
+      const base64 = `data:image/jpeg;base64,${Buffer.from(hfResponse.data).toString('base64')}`;
+      console.log(`[AI Service] Hugging Face SUCCESS!`);
+      return [base64];
+    } catch (err) {
+      console.error(`[AI Service] Hugging Face failed: ${err.message}. Check if token is expired.`);
+      if (err.response) console.error(err.response.data.toString());
+      // Fallback to pollinations
+    }
   }
+
+  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}&nologo=true`;
+  
+  // Return the URL directly to the frontend to avoid server-side IP blocking (402) and long timeouts
+  console.log(`[AI Service] Masterpiece URL generated (Fallback): ${pollUrl}`);
+  return [pollUrl];
 };
 
 const rewriteCaption = async (caption, tone) => {
