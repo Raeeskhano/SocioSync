@@ -26,8 +26,22 @@ export default async function handler(req) {
     });
 
     if (!hfResponse.ok) {
-      const errorText = await hfResponse.text();
-      return new Response(errorText, { status: hfResponse.status });
+      console.warn(`Hugging Face API failed with ${hfResponse.status}. Falling back to LoremFlickr stock photo...`);
+      // Fallback: Fetch a stunning relevant stock photo using LoremFlickr based on the prompt
+      const fallbackKeyword = encodeURIComponent(prompt.split(' ')[0] || 'beautiful');
+      const fallbackUrl = `https://loremflickr.com/1024/1024/${fallbackKeyword}?random=${Math.floor(Math.random() * 1000)}`;
+      
+      const fallbackResponse = await fetch(fallbackUrl);
+      const fallbackBuffer = await fallbackResponse.arrayBuffer();
+      
+      return new Response(fallbackBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'no-cache',
+          'X-Fallback-Used': 'true'
+        }
+      });
     }
 
     // Return the image blob
