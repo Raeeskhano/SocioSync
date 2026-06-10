@@ -104,37 +104,33 @@ const generateImages = async (userPrompt) => {
     console.log(`[AI Service] Masterpiece Anchor: ${anchorPrompt}`);
   } catch (err) { /* fallback */ }
 
-  const randomSeed = Math.floor(Math.random() * 1000000);
-  
-  // Try Hugging Face first if token is available
-  if (process.env.HF_TOKEN) {
-    try {
-      console.log(`[AI Service] Attempting Hugging Face generation...`);
-      // Use router.huggingface.co as it resolves more reliably than api-inference
-      const hfResponse = await axios.post(
-        "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3.5-large",
-        { inputs: anchorPrompt },
-        {
-          headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
-          responseType: 'arraybuffer',
-          timeout: 45000
-        }
-      );
-      const base64 = `data:image/jpeg;base64,${Buffer.from(hfResponse.data).toString('base64')}`;
-      console.log(`[AI Service] Hugging Face SUCCESS!`);
-      return [base64];
-    } catch (err) {
-      console.error(`[AI Service] Hugging Face failed: ${err.message}. Check if token is expired.`);
-      if (err.response) console.error(err.response.data.toString());
-      // Fallback to pollinations
-    }
+  if (!process.env.HF_TOKEN) {
+    throw new Error('HF_TOKEN is missing. Hugging Face token is required for image generation.');
   }
 
-  const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(anchorPrompt)}?width=1024&height=1024&seed=${randomSeed}`;
-  
-  // Return the URL directly to the frontend to avoid server-side IP blocking (402) and long timeouts
-  console.log(`[AI Service] Masterpiece URL generated (Fallback): ${pollUrl}`);
-  return [pollUrl];
+  try {
+    console.log(`[AI Service] Attempting Hugging Face generation...`);
+    const hfResponse = await axios.post(
+      "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-3.5-large",
+      { inputs: anchorPrompt },
+      {
+        headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
+        responseType: 'arraybuffer',
+        timeout: 45000
+      }
+    );
+    const base64 = `data:image/jpeg;base64,${Buffer.from(hfResponse.data).toString('base64')}`;
+    console.log(`[AI Service] Hugging Face SUCCESS!`);
+    return [base64];
+  } catch (err) {
+    console.error(`[AI Service] Hugging Face failed: ${err.message}`);
+    if (err.response) {
+      const errorMsg = err.response.data.toString();
+      console.error(errorMsg);
+      throw new Error(`Hugging Face API Error: ${errorMsg}`);
+    }
+    throw new Error('Failed to generate image with Hugging Face. Please try again later.');
+  }
 };
 
 const rewriteCaption = async (caption, tone) => {
