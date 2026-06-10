@@ -3,6 +3,10 @@
   "buildCommand": "cd frontend && npm install && npm run build && cd ../server && npm install",
   "builds": [
     {
+      "src": "api/proxy-image.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "server/api/index.js",
       "use": "@vercel/node"
     },
@@ -15,6 +19,10 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/proxy-image",
+      "dest": "/api/proxy-image.js"
+    },
     {
       "src": "/api/(.*)",
       "dest": "/server/api/index.js"

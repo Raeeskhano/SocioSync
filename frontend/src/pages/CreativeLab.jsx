@@ -96,18 +96,14 @@ const CreativeLab = () => {
         throw new Error("Missing Hugging Face token from backend");
       }
 
-      // 2. Fetch directly from Hugging Face from the browser to bypass Vercel timeouts
-      const response = await fetch(
-        "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
-        {
+      // 2. Fetch directly from our Vercel Edge Proxy to bypass both ISP block and 10s Serverless timeout
+      const response = await fetch("/api/proxy-image", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${config.hfToken}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ inputs: config.enhancedPrompt })
-        }
-      );
+          body: JSON.stringify({ prompt: config.enhancedPrompt, hfToken: config.hfToken })
+      });
 
       if (!response.ok) {
         const errText = await response.text();
