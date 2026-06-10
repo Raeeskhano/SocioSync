@@ -4,9 +4,8 @@ const axios = require('axios');
 async function testHF() {
   try {
     const token = process.env.HF_TOKEN;
-    console.log("Token exists:", !!token);
     const hfResponse = await axios.post(
-      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
       { inputs: "Futuristic storefront green sustainable brand" },
       {
         headers: { Authorization: `Bearer ${token}` },
