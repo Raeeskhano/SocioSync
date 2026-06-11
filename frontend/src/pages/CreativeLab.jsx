@@ -30,12 +30,12 @@ import { useToast } from '../context/ToastContext';
 
 // Rotating messages for FLUX.1-dev's longer generation time
 const FLUX_LOADING_MESSAGES = [
-  'Warming up FLUX.1-dev neural network...',
-  'Crafting your masterpiece with AI...',
-  'Rendering pixels with precision...',
-  'Applying cinematic lighting...',
+  'Sending request to FLUX.1-schnell...',
+  'Rendering your vision with AI...',
+  'Applying artistic style and lighting...',
+  'Generating 1024×1024 masterpiece...',
   'Polishing final details...',
-  'Almost there — quality takes time ✨',
+  'Almost ready ✨',
 ];
 
 const CreativeLab = () => {
@@ -295,7 +295,7 @@ const CreativeLab = () => {
         </div>
         <div className="flex items-center gap-2 bg-surface-container-highest/50 px-3 py-1.5 rounded-full border-ghost w-fit">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image Model: FLUX.1-dev</span>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image: FLUX.1-schnell</span>
         </div>
       </div>
 

@@ -94,26 +94,27 @@ const generateTextWithTone = async (prompt, tone) => {
 };
 
 const generateImages = async (userPrompt) => {
-  console.log(`[AI Service] Generating FLUX.1-dev image for: "${userPrompt}"`);
+  console.log(`[AI Service] Generating image for: "${userPrompt}"`);
   
   let enhancedPrompt = userPrompt;
   try {
-    // FLUX.1-dev excels at natural language — we ask Gemini to write a rich,
-    // descriptive sentence instead of the old comma-separated Stable Diffusion tag format.
-    const geminiPrompt = `You are an expert prompt engineer for the FLUX.1-dev image generation model.
-Convert the following user request into a single, highly detailed, natural language image prompt.
-The prompt should be descriptive and specific — include lighting, mood, style, perspective, and key visual details.
-Do NOT use comma-separated keyword tags. Write it as natural prose, max 2 sentences.
+    // FLUX.1-schnell works best with concise but descriptive natural language.
+    // 1-2 sentences max — include subject, style, lighting, mood.
+    // Avoid comma-separated SD tags; FLUX understands natural prose.
+    const geminiPrompt = `You are an expert prompt engineer for the FLUX.1-schnell image generation model.
+Convert the following user request into a concise, vivid, natural language image prompt.
+Keep it to 1-2 sentences. Include: main subject, art style or photographic style, lighting, mood, and key visual details.
+Do NOT use comma-separated keyword tags. Write natural prose only.
+Do NOT add quotes around the output.
 
 User request: "${userPrompt}"
 
-Output ONLY the refined prompt text, nothing else.`;
+Output ONLY the refined prompt text:`;
 
     const result = await getModel().generateContent(geminiPrompt);
     const raw = result.response.text().trim();
-    // Remove any surrounding quotes Gemini might add
-    enhancedPrompt = raw.replace(/^["']|["']$/g, '');
-    console.log(`[AI Service] FLUX-optimized prompt: ${enhancedPrompt}`);
+    enhancedPrompt = raw.replace(/^["']|["']$/g, '').trim();
+    console.log(`[AI Service] Enhanced prompt: ${enhancedPrompt}`);
   } catch (err) {
     console.warn('[AI Service] Gemini prompt enhancement failed, using original:', err.message);
   }
@@ -122,8 +123,6 @@ Output ONLY the refined prompt text, nothing else.`;
     throw new Error('HF_TOKEN is missing in environment variables.');
   }
 
-  // Return the enhanced prompt and token so the frontend can call the
-  // Vercel Edge proxy, which handles the FLUX.1-dev API call.
   return {
     enhancedPrompt,
     hfToken: process.env.HF_TOKEN

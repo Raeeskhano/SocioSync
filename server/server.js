@@ -78,95 +78,122 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
 
-// Local development proxy for FLUX.1-dev via Hugging Face Inference API
-// Uses axios instead of fetch for reliable SSL/TLS and binary handling across all Node versions
-const FLUX_MODEL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
+// Local development proxy — mirrors the Vercel Edge function in api/proxy-image.js
+// Uses axios for reliable binary handling across all Node.js versions
+const FLUX_SCHNELL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell";
+const SD_FALLBACK_URL  = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0";
+
+async function callHFAxios(modelUrl, prompt, hfToken, steps) {
+  const response = await axios.post(
+    modelUrl,
+    {
+      inputs: prompt,
+      parameters: {
+        num_inference_steps: steps,
+        width: 1024,
+        height: 1024
+      }
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${hfToken}`,
+        'Content-Type': 'application/json'
+        // No x-wait-for-model — it holds the connection open (60s+) which causes
+        // timeouts in both local Node and Vercel Edge environments
+      },
+      responseType: 'arraybuffer',
+      timeout: 20000  // 20 second hard cap
+    }
+  );
+
+  const contentType = response.headers['content-type'] || '';
+  if (contentType.includes('application/json')) {
+    const text = Buffer.from(response.data).toString('utf-8');
+    return { success: false, buffer: null, status: response.status, errorBody: text };
+  }
+
+  return { success: true, buffer: Buffer.from(response.data), status: response.status, errorBody: null };
+}
 
 app.post('/api/proxy-image', async (req, res) => {
   try {
     const { prompt, hfToken } = req.body;
-
     if (!prompt || !hfToken) {
       return res.status(400).json({ error: 'Missing prompt or token' });
     }
 
-    let imageBuffer = null;
-    let isHfSuccess = false;
-
+    // --- Attempt 1: FLUX.1-schnell (free, 4 steps, ~4-6s when warm) ---
+    let result;
+    let usedModel = 'FLUX.1-schnell';
     try {
-      console.log('[FLUX proxy] Sending request to FLUX.1-dev via axios...');
-      const hfResponse = await axios.post(
-        FLUX_MODEL_URL,
-        {
-          inputs: prompt,
-          parameters: {
-            guidance_scale: 3.5,
-            num_inference_steps: 28,
-            width: 1024,
-            height: 1024
-          }
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${hfToken}`,
-            'Content-Type': 'application/json',
-            'x-wait-for-model': 'true'   // Queue instead of returning 503 immediately
-          },
-          responseType: 'arraybuffer',   // Receive raw binary image data
-          timeout: 120000                // 2-minute timeout for FLUX cold starts
-        }
-      );
-
-      // If HF returns JSON inside arraybuffer, it's an error message
-      const contentType = hfResponse.headers['content-type'] || '';
-      if (contentType.includes('application/json')) {
-        const errorText = Buffer.from(hfResponse.data).toString('utf-8');
-        console.warn('[FLUX proxy] HF returned JSON error:', errorText);
-        isHfSuccess = false;
+      console.log('[proxy] Trying FLUX.1-schnell...');
+      result = await callHFAxios(FLUX_SCHNELL_URL, prompt, hfToken, 4);
+      if (result.success) {
+        console.log(`[proxy] ✅ FLUX.1-schnell success (${result.buffer.length} bytes)`);
       } else {
-        imageBuffer = Buffer.from(hfResponse.data);
-        isHfSuccess = true;
-        console.log(`[FLUX proxy] ✅ Success! Received ${imageBuffer.length} bytes from FLUX.1-dev`);
+        console.warn(`[proxy] FLUX.1-schnell HTTP ${result.status}:`, result.errorBody?.slice(0, 150));
       }
-    } catch (hfErr) {
-      // Axios wraps HTTP error responses — check if we got a response body
-      if (hfErr.response) {
-        const statusCode = hfErr.response.status;
-        let errBody = '';
-        try {
-          errBody = Buffer.from(hfErr.response.data).toString('utf-8');
-        } catch (_) {}
-        console.warn(`[FLUX proxy] FLUX.1-dev responded with HTTP ${statusCode}:`, errBody);
-      } else {
-        console.warn(`[FLUX proxy] FLUX.1-dev request failed: ${hfErr.message}`);
+    } catch (err) {
+      const status = err.response?.status ?? (err.code === 'ECONNABORTED' ? 408 : 0);
+      let errorBody = err.message;
+      if (err.response?.data) {
+        try { errorBody = Buffer.from(err.response.data).toString('utf-8'); } catch (_) {}
       }
-      isHfSuccess = false;
+      result = { success: false, buffer: null, status, errorBody };
+      console.warn(`[proxy] FLUX.1-schnell threw (${status}):`, errorBody.slice(0, 150));
     }
 
-    if (!isHfSuccess) {
-      console.warn('[FLUX proxy] Falling back to LoremFlickr stock photo...');
-      const stopWords = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'at', 'for', 'with', 'and', 'or', 'to', 'is', 'are', 'some']);
+    // --- Attempt 2: SDXL fallback ---
+    if (!result.success) {
+      try {
+        usedModel = 'SDXL';
+        console.log('[proxy] Trying SDXL fallback...');
+        result = await callHFAxios(SD_FALLBACK_URL, prompt, hfToken, 20);
+        if (result.success) {
+          console.log(`[proxy] ✅ SDXL success (${result.buffer.length} bytes)`);
+        } else {
+          console.warn(`[proxy] SDXL HTTP ${result.status}:`, result.errorBody?.slice(0, 150));
+        }
+      } catch (err) {
+        const status = err.response?.status ?? (err.code === 'ECONNABORTED' ? 408 : 0);
+        let errorBody = err.message;
+        if (err.response?.data) {
+          try { errorBody = Buffer.from(err.response.data).toString('utf-8'); } catch (_) {}
+        }
+        result = { success: false, buffer: null, status, errorBody };
+        console.warn(`[proxy] SDXL threw (${status}):`, errorBody.slice(0, 150));
+      }
+    }
+
+    // --- Both failed: stock photo fallback ---
+    if (!result.success) {
+      console.warn(`[proxy] All AI models failed. Using LoremFlickr stock photo.`);
+      const stopWords = new Set(['a','an','the','of','in','on','at','for','with','and','or','to','is','are','some']);
       const keywords = prompt.toLowerCase().split(/[^a-z0-9]+/)
         .filter(w => w.length > 2 && !stopWords.has(w))
         .slice(0, 3)
         .join(',');
-      const fallbackKeyword = encodeURIComponent(keywords || 'beautiful');
+      const fallbackKeyword = encodeURIComponent(keywords || 'creative');
       const fallbackUrl = `https://loremflickr.com/1024/1024/${fallbackKeyword}?all=1&random=${Math.floor(Math.random() * 1000)}`;
 
-      const fallbackResponse = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 15000 });
-      const fallbackBuffer = Buffer.from(fallbackResponse.data);
+      const fallbackResponse = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 10000 });
 
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('X-Fallback-Used', 'true');
-      return res.status(200).send(fallbackBuffer);
+      res.setHeader('X-HF-Status', String(result.status ?? 0));
+      res.setHeader('X-HF-Error', (result.errorBody ?? 'unknown').slice(0, 500));
+      return res.status(200).send(Buffer.from(fallbackResponse.data));
     }
 
+    // --- AI success ---
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'no-cache');
-    return res.status(200).send(imageBuffer);
+    res.setHeader('X-Used-Model', usedModel);
+    return res.status(200).send(result.buffer);
+
   } catch (err) {
-    console.error('[FLUX proxy] Unexpected error:', err.message);
+    console.error('[proxy] Unexpected error:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
