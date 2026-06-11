@@ -28,6 +28,16 @@ import Button from '../components/ui/Button';
 import aiService from '../api/aiService';
 import { useToast } from '../context/ToastContext';
 
+// Rotating messages for FLUX.1-dev's longer generation time
+const FLUX_LOADING_MESSAGES = [
+  'Warming up FLUX.1-dev neural network...',
+  'Crafting your masterpiece with AI...',
+  'Rendering pixels with precision...',
+  'Applying cinematic lighting...',
+  'Polishing final details...',
+  'Almost there — quality takes time ✨',
+];
+
 const CreativeLab = () => {
   const { showToast } = useToast();
   const [textPrompt, setTextPrompt] = useState('');
@@ -38,6 +48,7 @@ const CreativeLab = () => {
   const [imageOutputs, setImageOutputs] = useState([]);
   const [currentImageCreationId, setCurrentImageCreationId] = useState(null);
   const [recentCreations, setRecentCreations] = useState([]);
+  const [loadingMessageIdx, setLoadingMessageIdx] = useState(0);
   
   const [generatingText, setGeneratingText] = useState(false);
   const [generatingImages, setGeneratingImages] = useState(false);
@@ -54,6 +65,16 @@ const CreativeLab = () => {
   useEffect(() => {
     fetchHistory();
   }, []);
+
+  // Rotate loading messages while FLUX is generating
+  useEffect(() => {
+    if (!generatingImages) return;
+    setLoadingMessageIdx(0);
+    const interval = setInterval(() => {
+      setLoadingMessageIdx(prev => (prev + 1) % FLUX_LOADING_MESSAGES.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [generatingImages]);
 
   const fetchHistory = async () => {
     try {
@@ -85,57 +106,113 @@ const CreativeLab = () => {
   const handleGenerateImages = async () => {
     if (!imagePrompt) return;
     try {
-      console.log('Starting image generation for:', imagePrompt);
       setGeneratingImages(true);
-      
-      // 1. Get the enhanced prompt and HF Token from backend
+
+      // Step 1: Get the Gemini-enhanced prompt + HF token from our backend
       const config = await aiService.generateImages(imagePrompt);
-      console.log('Received config from backend:', config);
-      
       if (!config || !config.hfToken) {
-        throw new Error("Missing Hugging Face token from backend");
+        throw new Error('Missing Hugging Face token from backend.');
       }
 
-      // 2. Fetch directly from our Vercel Edge Proxy to bypass both ISP block and 10s Serverless timeout
-      const response = await fetch("/api/proxy-image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ prompt: config.enhancedPrompt, hfToken: config.hfToken })
+      const FLUX_URL = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev';
+      const fluxBody = JSON.stringify({
+        inputs: config.enhancedPrompt,
+        parameters: {
+          guidance_scale: 3.5,
+          num_inference_steps: 28,
+          width: 1024,
+          height: 1024
+        }
       });
+      const fluxHeaders = {
+        'Authorization': `Bearer ${config.hfToken}`,
+        'Content-Type': 'application/json',
+        'x-wait-for-model': 'true'
+      };
+
+      let response = null;
+
+      // Step 2 (LOCAL DEV): Try calling Hugging Face directly from the browser.
+      // The browser's network stack can sometimes bypass ISP-level DNS blocks
+      // that affect the local Node.js server process.
+      if (import.meta.env.DEV) {
+        try {
+          console.log('[Image Gen] DEV mode: attempting direct browser → HF call...');
+          const directRes = await fetch(FLUX_URL, {
+            method: 'POST',
+            headers: fluxHeaders,
+            body: fluxBody
+          });
+          const ct = directRes.headers.get('content-type') || '';
+          if (directRes.ok && !ct.includes('application/json')) {
+            response = directRes;
+            console.log('[Image Gen] ✅ Direct browser call to HF succeeded!');
+          } else {
+            console.warn('[Image Gen] Direct HF call returned JSON or error. Falling through to proxy...');
+          }
+        } catch (directErr) {
+          console.warn('[Image Gen] Direct HF call blocked (likely ISP):', directErr.message);
+        }
+      }
+
+      // Step 3: If direct call didn't work (or we're in production), use the proxy.
+      // In production this is the Vercel Edge function on Vercel's unrestricted servers.
+      if (!response) {
+        console.log('[Image Gen] Using /api/proxy-image...');
+        response = await fetch('/api/proxy-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: config.enhancedPrompt,
+            hfToken: config.hfToken
+          })
+        });
+      }
 
       if (!response.ok) {
         const errText = await response.text();
-        if (response.status === 503 && errText.includes('loading')) {
-          throw new Error("The AI model is currently warming up! Please try again in about 15 seconds.");
+        if (response.status === 503) {
+          throw new Error('FLUX model is warming up — please wait 20 seconds and try again.');
         }
-        throw new Error(`Hugging Face API Error: ${errText}`);
+        throw new Error(`Image generation failed (${response.status}): ${errText}`);
       }
 
+      // Step 4: Check if HF was unreachable and we fell back to a stock photo
+      const usedFallback = response.headers.get('X-Fallback-Used') === 'true';
+      if (usedFallback) {
+        showToast(
+          '⚠️ FLUX.1-dev unreachable from local network (ISP block). Showing stock photo. Deploy to Vercel for real AI images.',
+          'warning'
+        );
+      }
+
+      // Step 5: Convert image blob → base64 and save to history
       const blob = await response.blob();
-      
-      // Convert Blob to Base64 to save to MongoDB
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
         const base64data = reader.result;
         setImageOutputs([base64data]);
         setImageLoaded(false);
-
-        // 3. Save the creation to the backend
         try {
           const saved = await aiService.saveImageCreation(imagePrompt, [base64data]);
           setCurrentImageCreationId(saved.creationId);
           fetchHistory();
         } catch (saveErr) {
-          console.error("Failed to save to history", saveErr);
+          console.error('Failed to save image to history:', saveErr);
         }
       };
 
     } catch (err) {
       console.error('Generate Images Error:', err);
-      const msg = err.message || err.response?.data?.message || 'Failed to generate images. Please try again.';
+      let msg = err.message || 'Failed to generate image. Please try again.';
+      if (
+        msg.toLowerCase().includes('enotfound') ||
+        msg.toLowerCase().includes('failed to fetch') ||
+        msg.toLowerCase().includes('networkerror')
+      ) {
+        msg = '🌐 Cannot reach Hugging Face from your network. Deploy to Vercel to use FLUX, or enable a VPN locally.';
+      }
       showToast(msg, 'error');
     } finally {
       setGeneratingImages(false);
@@ -202,7 +279,7 @@ const CreativeLab = () => {
         </div>
         <div className="flex items-center gap-2 bg-surface-container-highest/50 px-3 py-1.5 rounded-full border-ghost w-fit">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">AI Model: Socio V3-Turbo</span>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image Model: FLUX.1-dev</span>
         </div>
       </div>
 
@@ -326,12 +403,38 @@ const CreativeLab = () => {
           </div>
 
           <div className="flex flex-col items-center">
-            {imageOutputs && imageOutputs.length > 0 ? (
+            {generatingImages ? (
+              /* FLUX.1-dev generation in progress — rich loading UI */
+              <div className="w-full max-w-lg aspect-square rounded-2xl bg-surface-container-low border-ghost border flex flex-col items-center justify-center gap-5 relative overflow-hidden">
+                {/* Animated shimmer background */}
+                <div className="absolute inset-0 opacity-10"
+                  style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, transparent 60%)' }}/>
+                <div className="relative flex flex-col items-center gap-5 px-6 text-center">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Sparkles className="w-8 h-8 text-primary" />
+                    </div>
+                    <div className="absolute -inset-1 rounded-2xl border border-primary/20 animate-ping" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm font-bold text-on-surface transition-all duration-500">
+                      {FLUX_LOADING_MESSAGES[loadingMessageIdx]}
+                    </p>
+                    <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">FLUX.1-dev • High Quality</p>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-48 h-1 bg-surface-container-high rounded-full overflow-hidden">
+                    <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant/60">This may take up to 30 seconds</p>
+                </div>
+              </div>
+            ) : imageOutputs && imageOutputs.length > 0 ? (
               <div className="w-full max-w-lg aspect-square rounded-2xl overflow-hidden border-ghost shadow-xl group relative bg-surface-container-low mx-auto flex items-center justify-center">
                 {!imageLoaded && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-surface-container-low z-10">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
-                    <p className="text-sm text-on-surface-variant animate-pulse font-medium">Generating your masterpiece...</p>
+                    <p className="text-sm text-on-surface-variant animate-pulse font-medium">Loading image...</p>
                   </div>
                 )}
                 <img 
@@ -363,6 +466,7 @@ const CreativeLab = () => {
                     <ImageIcon className="w-12 h-12" />
                  </div>
                  <p className="text-sm font-medium">Your masterpiece will appear here</p>
+                 <p className="text-[10px] uppercase tracking-widest">Powered by FLUX.1-dev</p>
               </div>
             )}
           </div>

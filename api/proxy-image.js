@@ -2,6 +2,11 @@ export const config = {
   runtime: 'edge',
 };
 
+// FLUX.1-dev via Hugging Face Inference API
+// NOTE: The HF account used to generate HF_TOKEN must have accepted the
+// black-forest-labs/FLUX.1-dev license at huggingface.co/black-forest-labs/FLUX.1-dev
+const FLUX_MODEL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev";
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405 });
@@ -16,19 +21,28 @@ export default async function handler(req) {
 
     let hfResponse;
     try {
-      // Forward the request to Hugging Face
-      // Edge functions run up to 25s on Hobby, giving Hugging Face enough time to warm up.
-      hfResponse = await fetch("https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5", {
+      // Forward the request to FLUX.1-dev on Hugging Face.
+      // Vercel Edge functions allow up to 25s on Hobby tier — enough for FLUX to warm up.
+      hfResponse = await fetch(FLUX_MODEL_URL, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${hfToken}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "x-wait-for-model": "true"   // Tell HF to queue instead of returning 503 immediately
         },
-        body: JSON.stringify({ inputs: prompt })
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            guidance_scale: 3.5,       // Recommended for FLUX.1-dev
+            num_inference_steps: 28,   // Good balance of quality vs. speed
+            width: 1024,
+            height: 1024
+          }
+        })
       });
     } catch (hfErr) {
-      console.warn(`Hugging Face fetch threw an error: ${hfErr.message}. Falling back...`);
-      hfResponse = { ok: false, status: 500 }; // Fake response to trigger fallback
+      console.warn(`FLUX.1-dev fetch threw an error: ${hfErr.message}. Falling back...`);
+      hfResponse = { ok: false, status: 500 };
     }
 
     let isHfSuccess = false;
@@ -38,19 +52,25 @@ export default async function handler(req) {
       const contentType = hfResponse.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
         const errorJson = await hfResponse.json();
-        console.warn('Hugging Face returned JSON error:', errorJson);
-        isHfSuccess = false; // Trigger fallback
+        console.warn('FLUX.1-dev returned JSON (likely still loading):', errorJson);
+        isHfSuccess = false;
       } else {
         imageBuffer = await hfResponse.arrayBuffer();
         isHfSuccess = true;
       }
+    } else {
+      console.warn(`FLUX.1-dev returned status: ${hfResponse.status}`);
     }
 
     if (!isHfSuccess) {
-      console.warn(`Hugging Face API failed or returned JSON. Falling back to LoremFlickr stock photo...`);
-      // Fallback: Fetch a stunning relevant stock photo using LoremFlickr based on the prompt
-      const fallbackKeyword = encodeURIComponent(prompt.split(' ')[0] || 'beautiful');
-      const fallbackUrl = `https://loremflickr.com/1024/1024/${fallbackKeyword}?random=${Math.floor(Math.random() * 1000)}`;
+      console.warn(`FLUX.1-dev failed. Falling back to LoremFlickr stock photo...`);
+      const stopWords = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'at', 'for', 'with', 'and', 'or', 'to', 'is', 'are', 'some']);
+      const keywords = prompt.toLowerCase().split(/[^a-z0-9]+/)
+        .filter(w => w.length > 2 && !stopWords.has(w))
+        .slice(0, 3)
+        .join(',');
+      const fallbackKeyword = encodeURIComponent(keywords || 'beautiful');
+      const fallbackUrl = `https://loremflickr.com/1024/1024/${fallbackKeyword}?all=1&random=${Math.floor(Math.random() * 1000)}`;
       
       const fallbackResponse = await fetch(fallbackUrl);
       const fallbackBuffer = await fallbackResponse.arrayBuffer();
@@ -65,7 +85,7 @@ export default async function handler(req) {
       });
     }
 
-    // Return the image blob
+    // Return the FLUX-generated image blob
     return new Response(imageBuffer, {
       status: 200,
       headers: {
@@ -75,6 +95,7 @@ export default async function handler(req) {
     });
 
   } catch (err) {
+    console.error("Edge proxy-image error:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }

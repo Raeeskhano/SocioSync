@@ -94,24 +94,38 @@ const generateTextWithTone = async (prompt, tone) => {
 };
 
 const generateImages = async (userPrompt) => {
-  console.log(`[AI Service] Generating single masterpiece for: "${userPrompt}"`);
+  console.log(`[AI Service] Generating FLUX.1-dev image for: "${userPrompt}"`);
   
-  let anchorPrompt = userPrompt;
+  let enhancedPrompt = userPrompt;
   try {
-    const geminiPrompt = `10-word Stable Diffusion prompt for: "${userPrompt}". Subject-focused, professional photography.`;
-    const result = await getModel().generateContent(geminiPrompt);
-    anchorPrompt = result.response.text().trim().replace(/[^a-zA-Z0-9, ]/g, '');
-    console.log(`[AI Service] Masterpiece Anchor: ${anchorPrompt}`);
-  } catch (err) { /* fallback */ }
+    // FLUX.1-dev excels at natural language — we ask Gemini to write a rich,
+    // descriptive sentence instead of the old comma-separated Stable Diffusion tag format.
+    const geminiPrompt = `You are an expert prompt engineer for the FLUX.1-dev image generation model.
+Convert the following user request into a single, highly detailed, natural language image prompt.
+The prompt should be descriptive and specific — include lighting, mood, style, perspective, and key visual details.
+Do NOT use comma-separated keyword tags. Write it as natural prose, max 2 sentences.
 
-  if (!process.env.HF_TOKEN) {
-    throw new Error('HF_TOKEN is missing in Vercel environment variables.');
+User request: "${userPrompt}"
+
+Output ONLY the refined prompt text, nothing else.`;
+
+    const result = await getModel().generateContent(geminiPrompt);
+    const raw = result.response.text().trim();
+    // Remove any surrounding quotes Gemini might add
+    enhancedPrompt = raw.replace(/^["']|["']$/g, '');
+    console.log(`[AI Service] FLUX-optimized prompt: ${enhancedPrompt}`);
+  } catch (err) {
+    console.warn('[AI Service] Gemini prompt enhancement failed, using original:', err.message);
   }
 
-  // Return the prompt and token so the frontend can generate the image directly,
-  // bypassing Vercel's strict 10-second serverless timeout entirely.
+  if (!process.env.HF_TOKEN) {
+    throw new Error('HF_TOKEN is missing in environment variables.');
+  }
+
+  // Return the enhanced prompt and token so the frontend can call the
+  // Vercel Edge proxy, which handles the FLUX.1-dev API call.
   return {
-    enhancedPrompt: anchorPrompt,
+    enhancedPrompt,
     hfToken: process.env.HF_TOKEN
   };
 };
