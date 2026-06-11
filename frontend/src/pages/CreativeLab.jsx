@@ -177,13 +177,29 @@ const CreativeLab = () => {
         throw new Error(`Image generation failed (${response.status}): ${errText}`);
       }
 
-      // Step 4: Check if HF was unreachable and we fell back to a stock photo
+      // Step 4: Check if HF was unreachable and fell back to stock photo.
+      // Read X-HF-Status and X-HF-Error headers to show a precise diagnostic message.
       const usedFallback = response.headers.get('X-Fallback-Used') === 'true';
       if (usedFallback) {
-        showToast(
-          '⚠️ FLUX.1-dev unreachable from local network (ISP block). Showing stock photo. Deploy to Vercel for real AI images.',
-          'warning'
-        );
+        const hfStatus = response.headers.get('X-HF-Status') || '0';
+        const hfError  = response.headers.get('X-HF-Error')  || 'unknown error';
+        const usedModel = response.headers.get('X-Used-Model') || 'FLUX.1-dev';
+
+        let fallbackMsg = '';
+        if (hfStatus === '403') {
+          fallbackMsg = `❌ Access denied (403): Your HF token does not have permission to use FLUX.1-dev. Accept the model license at huggingface.co/black-forest-labs/FLUX.1-dev and ensure your token has "Read" access.`;
+        } else if (hfStatus === '401') {
+          fallbackMsg = `❌ Invalid HF token (401): Check that the HF_TOKEN environment variable on Vercel is correct and hasn't expired.`;
+        } else if (hfStatus === '503') {
+          fallbackMsg = `⏳ FLUX model is loading (503). Wait 20 seconds and try again.`;
+        } else if (hfStatus === '0') {
+          fallbackMsg = `🌐 Network error: Could not reach Hugging Face. Check Vercel function logs for details.`;
+        } else {
+          fallbackMsg = `⚠️ FLUX returned HTTP ${hfStatus}. Showing stock photo. Error: ${hfError.slice(0, 120)}`;
+        }
+
+        console.error('[Image Gen] HF fallback details — status:', hfStatus, 'error:', hfError);
+        showToast(fallbackMsg, hfStatus === '503' ? 'warning' : 'error');
       }
 
       // Step 5: Convert image blob → base64 and save to history
