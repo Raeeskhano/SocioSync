@@ -78,81 +78,76 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date() });
 });
 
-// Local development proxy — mirrors the Vercel Edge function in api/proxy-image.js
-// Uses axios for reliable binary handling across all Node.js versions
-const FLUX_SCHNELL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell";
-const SD_FALLBACK_URL  = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0";
+// Local dev proxy — mirrors api/proxy-image.js (Vercel Edge function)
+// PRIMARY: Pollinations.AI — free, no auth, uses FLUX model, simple GET
+// SECONDARY: HF FLUX.1-schnell — free, needs HF_TOKEN
+// LAST RESORT: LoremFlickr stock photo
 
-async function callHFAxios(modelUrl, prompt, hfToken, steps) {
-  const response = await axios.post(
-    modelUrl,
-    {
-      inputs: prompt,
-      parameters: {
-        num_inference_steps: steps,
-        width: 1024,
-        height: 1024
-      }
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${hfToken}`,
-        'Content-Type': 'application/json'
-        // No x-wait-for-model — it holds the connection open (60s+) which causes
-        // timeouts in both local Node and Vercel Edge environments
-      },
-      responseType: 'arraybuffer',
-      timeout: 20000  // 20 second hard cap
-    }
-  );
-
-  const contentType = response.headers['content-type'] || '';
-  if (contentType.includes('application/json')) {
-    const text = Buffer.from(response.data).toString('utf-8');
-    return { success: false, buffer: null, status: response.status, errorBody: text };
-  }
-
-  return { success: true, buffer: Buffer.from(response.data), status: response.status, errorBody: null };
+function buildPollinationsUrl(prompt) {
+  const encoded = encodeURIComponent(prompt);
+  const seed = Math.floor(Math.random() * 999999);
+  return `https://image.pollinations.ai/prompt/${encoded}?model=flux&width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
 }
+
+const HF_SCHNELL_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell";
 
 app.post('/api/proxy-image', async (req, res) => {
   try {
     const { prompt, hfToken } = req.body;
-    if (!prompt || !hfToken) {
-      return res.status(400).json({ error: 'Missing prompt or token' });
+    if (!prompt) {
+      return res.status(400).json({ error: 'Missing prompt' });
     }
 
-    // --- Attempt 1: FLUX.1-schnell (free, 4 steps, ~4-6s when warm) ---
-    let result;
-    let usedModel = 'FLUX.1-schnell';
+    let result = { success: false, buffer: null, status: 0, errorBody: 'not attempted' };
+    let usedModel = '';
+
+    // ─── Attempt 1: Pollinations.AI (FLUX) ──────────────────────────────────
     try {
-      console.log('[proxy] Trying FLUX.1-schnell...');
-      result = await callHFAxios(FLUX_SCHNELL_URL, prompt, hfToken, 4);
-      if (result.success) {
-        console.log(`[proxy] ✅ FLUX.1-schnell success (${result.buffer.length} bytes)`);
+      console.log('[proxy] Trying Pollinations.AI FLUX...');
+      const pollinationsUrl = buildPollinationsUrl(prompt);
+      const polResponse = await axios.get(pollinationsUrl, {
+        responseType: 'arraybuffer',
+        timeout: 22000,
+        headers: { 'Accept': 'image/*' }
+      });
+      const contentType = polResponse.headers['content-type'] || '';
+      const buf = Buffer.from(polResponse.data);
+      if (buf.length > 1000 && !contentType.includes('application/json')) {
+        result = { success: true, buffer: buf, status: polResponse.status, errorBody: null };
+        usedModel = 'pollinations-flux';
+        console.log(`[proxy] ✅ Pollinations success (${buf.length} bytes)`);
       } else {
-        console.warn(`[proxy] FLUX.1-schnell HTTP ${result.status}:`, result.errorBody?.slice(0, 150));
+        result = { success: false, buffer: null, status: polResponse.status, errorBody: 'Response too small or JSON' };
+        console.warn('[proxy] Pollinations returned invalid response');
       }
     } catch (err) {
-      const status = err.response?.status ?? (err.code === 'ECONNABORTED' ? 408 : 0);
-      let errorBody = err.message;
-      if (err.response?.data) {
-        try { errorBody = Buffer.from(err.response.data).toString('utf-8'); } catch (_) {}
-      }
-      result = { success: false, buffer: null, status, errorBody };
-      console.warn(`[proxy] FLUX.1-schnell threw (${status}):`, errorBody.slice(0, 150));
+      result = { success: false, buffer: null, status: err.response?.status ?? 0, errorBody: err.message };
+      console.warn('[proxy] Pollinations threw:', err.message);
     }
 
-    // --- Attempt 2: SDXL fallback ---
-    if (!result.success) {
+    // ─── Attempt 2: HF FLUX.1-schnell ──────────────────────────────────────
+    if (!result.success && hfToken) {
       try {
-        usedModel = 'SDXL';
-        console.log('[proxy] Trying SDXL fallback...');
-        result = await callHFAxios(SD_FALLBACK_URL, prompt, hfToken, 20);
-        if (result.success) {
-          console.log(`[proxy] ✅ SDXL success (${result.buffer.length} bytes)`);
+        console.log('[proxy] Trying HF FLUX.1-schnell...');
+        const hfResponse = await axios.post(
+          HF_SCHNELL_URL,
+          { inputs: prompt, parameters: { num_inference_steps: 4, width: 1024, height: 1024 } },
+          {
+            headers: { 'Authorization': `Bearer ${hfToken}`, 'Content-Type': 'application/json' },
+            responseType: 'arraybuffer',
+            timeout: 20000
+          }
+        );
+        const contentType = hfResponse.headers['content-type'] || '';
+        const buf = Buffer.from(hfResponse.data);
+        if (buf.length > 1000 && !contentType.includes('application/json')) {
+          result = { success: true, buffer: buf, status: hfResponse.status, errorBody: null };
+          usedModel = 'hf-flux-schnell';
+          console.log(`[proxy] ✅ HF FLUX.1-schnell success (${buf.length} bytes)`);
         } else {
-          console.warn(`[proxy] SDXL HTTP ${result.status}:`, result.errorBody?.slice(0, 150));
+          const errText = buf.toString('utf-8');
+          result = { success: false, buffer: null, status: hfResponse.status, errorBody: errText };
+          console.warn('[proxy] HF schnell returned JSON error:', errText.slice(0, 150));
         }
       } catch (err) {
         const status = err.response?.status ?? (err.code === 'ECONNABORTED' ? 408 : 0);
@@ -161,36 +156,34 @@ app.post('/api/proxy-image', async (req, res) => {
           try { errorBody = Buffer.from(err.response.data).toString('utf-8'); } catch (_) {}
         }
         result = { success: false, buffer: null, status, errorBody };
-        console.warn(`[proxy] SDXL threw (${status}):`, errorBody.slice(0, 150));
+        console.warn(`[proxy] HF schnell threw (${status}):`, errorBody.slice(0, 150));
       }
     }
 
-    // --- Both failed: stock photo fallback ---
-    if (!result.success) {
-      console.warn(`[proxy] All AI models failed. Using LoremFlickr stock photo.`);
-      const stopWords = new Set(['a','an','the','of','in','on','at','for','with','and','or','to','is','are','some']);
-      const keywords = prompt.toLowerCase().split(/[^a-z0-9]+/)
-        .filter(w => w.length > 2 && !stopWords.has(w))
-        .slice(0, 3)
-        .join(',');
-      const fallbackKeyword = encodeURIComponent(keywords || 'creative');
-      const fallbackUrl = `https://loremflickr.com/1024/1024/${fallbackKeyword}?all=1&random=${Math.floor(Math.random() * 1000)}`;
-
-      const fallbackResponse = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 10000 });
-
+    // ─── Success ─────────────────────────────────────────────────────────────
+    if (result.success) {
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('X-Fallback-Used', 'true');
-      res.setHeader('X-HF-Status', String(result.status ?? 0));
-      res.setHeader('X-HF-Error', (result.errorBody ?? 'unknown').slice(0, 500));
-      return res.status(200).send(Buffer.from(fallbackResponse.data));
+      res.setHeader('X-Used-Model', usedModel);
+      return res.status(200).send(result.buffer);
     }
 
-    // --- AI success ---
+    // ─── All AI failed → LoremFlickr stock photo ─────────────────────────────
+    console.warn('[proxy] All AI models failed. Using LoremFlickr stock photo.');
+    const stopWords = new Set(['a','an','the','of','in','on','at','for','with','and','or','to','is','are','some']);
+    const keywords = prompt.toLowerCase().split(/[^a-z0-9]+/)
+      .filter(w => w.length > 2 && !stopWords.has(w))
+      .slice(0, 3)
+      .join(',');
+    const fallbackUrl = `https://loremflickr.com/1024/1024/${encodeURIComponent(keywords || 'creative')}?all=1&random=${Math.floor(Math.random() * 9999)}`;
+
+    const fallbackResponse = await axios.get(fallbackUrl, { responseType: 'arraybuffer', timeout: 10000 });
     res.setHeader('Content-Type', 'image/jpeg');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('X-Used-Model', usedModel);
-    return res.status(200).send(result.buffer);
+    res.setHeader('X-Fallback-Used', 'true');
+    res.setHeader('X-HF-Status', String(result.status ?? 0));
+    res.setHeader('X-HF-Error', (result.errorBody ?? 'unknown').slice(0, 500));
+    return res.status(200).send(Buffer.from(fallbackResponse.data));
 
   } catch (err) {
     console.error('[proxy] Unexpected error:', err.message);
