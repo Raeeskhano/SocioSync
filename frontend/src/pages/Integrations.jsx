@@ -13,7 +13,7 @@ import {
   Music2,
   AtSign,
   Pin,
-  Settings2,
+
   ShieldAlert,
   Loader2,
   X,
@@ -57,8 +57,7 @@ const PlatformConfig = {
     icon: IconLinkedin,
     color: 'text-[#0A66C2]',
     bg: 'bg-[#0A66C2]/10',
-    span: 'md:col-span-2 lg:col-span-2',
-    showTeamAvatars: true
+    span: 'md:col-span-1 lg:col-span-1'
   },
   instagram: {
     name: 'Instagram',
@@ -79,8 +78,7 @@ const PlatformConfig = {
     icon: IconTwitter,
     color: 'text-on-surface',
     bg: 'bg-surface-bright',
-    span: 'md:col-span-1 lg:col-span-1',
-    showUsageBar: true
+    span: 'md:col-span-1 lg:col-span-1'
   }
 };
 
@@ -88,7 +86,7 @@ const Integrations = () => {
   const dispatch = useDispatch();
   const { showToast } = useToast();
   const { connectedAccounts, upcomingPlatforms, loading } = useSelector((state) => state.integrations);
-  const [activeManagePlatform, setActiveManagePlatform] = useState(null);
+
   
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [securityLogs, setSecurityLogs] = useState([]);
@@ -201,61 +199,6 @@ const Integrations = () => {
                 </div>
               )}
 
-              {/* LinkedIn specific UI or general team UI */}
-              {config.showTeamAvatars && (
-                <div className="flex items-center justify-end mt-auto">
-                  <div className="relative">
-                    <button 
-                      onClick={() => setActiveManagePlatform(activeManagePlatform === account.platform ? null : account.platform)}
-                      className="text-xs font-bold text-on-surface-variant hover:text-primary flex items-center gap-1.5 transition-colors"
-                    >
-                      <Settings2 className="w-3.5 h-3.5" /> Manage
-                    </button>
-                    
-                    {activeManagePlatform === account.platform && (
-                      <div className="absolute right-0 bottom-full mb-2 w-48 bg-surface-container-high border border-ghost rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
-                        <button 
-                          onClick={() => {
-                            showToast("Manual synchronization started successfully.", "success");
-                            dispatch(fetchIntegrations());
-                            setActiveManagePlatform(null);
-                          }}
-                          className="w-full text-left text-xs font-bold text-on-surface hover:text-primary hover:bg-surface-container-low px-3 py-2 rounded-xl transition-colors"
-                        >
-                          Sync Metrics Now
-                        </button>
-                        <div className="h-[1px] bg-ghost my-1" />
-                        <button 
-                          onClick={() => {
-                            handleDisconnect(account.platform);
-                            setActiveManagePlatform(null);
-                          }}
-                          className="w-full text-left text-xs font-bold text-error hover:bg-error/10 px-3 py-2 rounded-xl transition-colors"
-                        >
-                          Disconnect Account
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Twitter specific UI */}
-              {config.showUsageBar && (
-                <div className="flex flex-col gap-3 mt-auto">
-                  <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-                    <span>API Usage</span>
-                    <span>82%</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-500"
-                      style={{ width: '82%' }}
-                    ></div>
-                  </div>
-                </div>
-              )}
-
               {/* Reconnect / Action Buttons */}
               <div className="flex flex-col gap-3 mt-auto">
                 {account.status === 'error' ? (
@@ -273,15 +216,14 @@ const Integrations = () => {
                       <p className="text-[10px] text-success font-bold flex items-center gap-2 uppercase tracking-widest">
                         <CheckCircle2 className="w-4 h-4" /> Fully Operational
                       </p>
-                      {!config.showTeamAvatars && (
+                      
                         <button 
                           onClick={() => handleDisconnect(account.platform)}
                           className="text-[10px] font-bold text-on-surface-variant hover:text-error transition-colors uppercase"
                         >
                           Disconnect
                         </button>
-                      )}
-                   </div>
+                    </div>
                 )}
               </div>
             </div>
