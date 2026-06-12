@@ -28,7 +28,7 @@ const Sidebar = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Integrations', path: '/integrations', icon: Users, hideOnMobile: true },
+    { name: 'Integrations', path: '/integrations', icon: Users },
     { name: 'Creative Lab', path: '/ai-creative-lab', icon: Sparkles },
     { name: 'Publisher', path: '/publisher', icon: Share2 },
     { name: 'Analytics', path: '/analytics', icon: BarChart2 },
