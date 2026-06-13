@@ -87,6 +87,28 @@ const fetchInstagramInsights = async (accessToken, mediaId) => {
   }
 };
 
+const fetchTwitterStats = async (accessToken, accessSecret, tweetId) => {
+  try {
+    const { TwitterApi } = require("twitter-api-v2");
+
+    const client = new TwitterApi({
+      appKey: process.env.TWITTER_CONSUMER_KEY,
+      appSecret: process.env.TWITTER_CONSUMER_SECRET,
+      accessToken: accessToken,
+      accessSecret: accessSecret,
+    });
+
+    const tweet = await client.v2.singleTweet(tweetId, {
+      "tweet.fields": ["public_metrics", "organic_metrics", "non_public_metrics"],
+    });
+
+    return tweet.data?.public_metrics || null;
+  } catch (error) {
+    console.error("Twitter Stats Error:", error.data?.detail || error.message);
+    return null;
+  }
+};
+
 const normalizeMetrics = (rawData, platform) => {
   if (!rawData) return null;
 
@@ -134,15 +156,14 @@ const normalizeMetrics = (rawData, platform) => {
     
     case 'twitter':
     case 'x':
-        // Placeholder for X/Twitter set to return zero metrics strictly
-        normalized = {
-            impressions: 0,
-            shares: 0,
-            likes: 0,
-            comments: 0,
-            reach: 0,
-            engagedUsers: 0
-        };
+        if (rawData.impression_count !== undefined) {
+          normalized.impressions = rawData.impression_count || 0;
+          normalized.likes = rawData.like_count || 0;
+          normalized.shares = rawData.retweet_count || 0;
+          normalized.comments = rawData.reply_count || 0;
+          normalized.reach = rawData.impression_count || 0;
+          normalized.engagedUsers = (rawData.like_count || 0) + (rawData.retweet_count || 0) + (rawData.reply_count || 0) + (rawData.quote_count || 0);
+        }
         break;
   }
 
@@ -153,5 +174,7 @@ module.exports = {
   fetchMetaInsights,
   fetchLinkedInStats,
   fetchInstagramInsights,
+  fetchTwitterStats,
   normalizeMetrics
 };
+

@@ -298,6 +298,11 @@ const syncAnalytics = async (req, res, next) => {
           case 'instagram':
             rawData = await analyticsService.fetchInstagramInsights(decryptedToken, p.platformPostId);
             break;
+          case 'twitter':
+          case 'x':
+            const decryptedSecret = decrypt(account.refreshToken);
+            rawData = await analyticsService.fetchTwitterStats(decryptedToken, decryptedSecret, p.platformPostId);
+            break;
           default:
             rawData = null;
         }

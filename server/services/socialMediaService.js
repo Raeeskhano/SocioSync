@@ -305,10 +305,108 @@ const postToInstagram = async (
 
 const postToTwitter = async (token, tokenSecret, caption, mediaUrl) => {
   try {
-    console.log("Posting to Twitter (Placeholder):", { caption, mediaUrl });
-    return { success: true, postId: "twitter_" + Date.now() };
+    const { TwitterApi } = require("twitter-api-v2");
+
+    // Create a client with OAuth 1.0a user-context authentication
+    const client = new TwitterApi({
+      appKey: process.env.TWITTER_CONSUMER_KEY,
+      appSecret: process.env.TWITTER_CONSUMER_SECRET,
+      accessToken: token,
+      accessSecret: tokenSecret,
+    });
+
+    // Use read-write client
+    const rwClient = client.readWrite;
+
+    let mediaId = null;
+
+    // Upload media if provided
+    if (mediaUrl) {
+      let filePath;
+      let fileBuffer;
+      let mimeType;
+
+      if (mediaUrl.startsWith("http")) {
+        // Download remote file
+        const response = await axios.get(mediaUrl, { responseType: "arraybuffer" });
+        fileBuffer = Buffer.from(response.data);
+        mimeType = response.headers["content-type"] || "image/jpeg";
+      } else {
+        // Local file
+        filePath = path.isAbsolute(mediaUrl)
+          ? mediaUrl
+          : path.join(__dirname, "..", mediaUrl);
+        
+        if (!fs.existsSync(filePath)) {
+          console.warn("Twitter media file not found:", filePath);
+          // Post without media if file doesn't exist
+          const tweetResponse = await rwClient.v2.tweet(caption);
+          return { success: true, postId: tweetResponse.data.id };
+        }
+
+        fileBuffer = fs.readFileSync(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeMap = {
+          ".jpg": "image/jpeg",
+          ".jpeg": "image/jpeg",
+          ".png": "image/png",
+          ".gif": "image/gif",
+          ".webp": "image/webp",
+          ".mp4": "video/mp4",
+          ".mov": "video/quicktime",
+        };
+        mimeType = mimeMap[ext] || "image/jpeg";
+      }
+
+      // Upload media to Twitter
+      const isVideo = mimeType.startsWith("video");
+      
+      if (isVideo) {
+        // Use chunked upload for videos
+        mediaId = await client.v1.uploadMedia(fileBuffer, {
+          mimeType: mimeType,
+          target: "tweet",
+          chunkLength: 5 * 1024 * 1024, // 5MB chunks
+        });
+      } else {
+        // Standard upload for images
+        mediaId = await client.v1.uploadMedia(fileBuffer, {
+          mimeType: mimeType,
+          target: "tweet",
+        });
+      }
+    }
+
+    // Post the tweet
+    const tweetPayload = { text: caption };
+    if (mediaId) {
+      tweetPayload.media = { media_ids: [mediaId] };
+    }
+
+    const tweetResponse = await rwClient.v2.tweet(tweetPayload);
+
+    console.log("Twitter post published successfully:", tweetResponse.data.id);
+    return { success: true, postId: tweetResponse.data.id };
   } catch (error) {
-    return { success: false, error: error.message };
+    console.error(
+      "Twitter Post Error:",
+      error.data || error.message,
+    );
+    let errorMsg = error.data?.detail || error.message;
+    
+    // Provide helpful error messages for common issues
+    if (error.code === 401 || error.data?.status === 401) {
+      errorMsg = "Twitter authentication failed. Please reconnect your Twitter/X account.";
+    } else if (error.code === 403 || error.data?.status === 403) {
+      errorMsg = "Twitter API access denied. Your Twitter Developer App may need Elevated or Pro access to post tweets. Check your app permissions at developer.x.com.";
+    } else if (error.code === 429 || error.data?.status === 429) {
+      errorMsg = "Twitter rate limit exceeded. Please wait a few minutes before posting again.";
+    }
+    
+    return {
+      success: false,
+      error: errorMsg,
+    };
   }
 };
 
