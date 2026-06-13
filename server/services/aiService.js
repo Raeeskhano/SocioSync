@@ -98,10 +98,9 @@ const generateImages = async (userPrompt) => {
   
   let enhancedPrompt = userPrompt;
   try {
-    // FLUX.1-schnell works best with concise but descriptive natural language.
-    // 1-2 sentences max — include subject, style, lighting, mood.
-    // Avoid comma-separated SD tags; FLUX understands natural prose.
-    const geminiPrompt = `You are an expert prompt engineer for the FLUX.1-schnell image generation model.
+    // Pollinations.ai uses FLUX under the hood and works best with concise,
+    // vivid natural language prompts. Gemini enhances the user's raw input.
+    const geminiPrompt = `You are an expert prompt engineer for the FLUX image generation model (via Pollinations.ai).
 Convert the following user request into a concise, vivid, natural language image prompt.
 Keep it to 1-2 sentences. Include: main subject, art style or photographic style, lighting, mood, and key visual details.
 Do NOT use comma-separated keyword tags. Write natural prose only.
@@ -119,13 +118,8 @@ Output ONLY the refined prompt text:`;
     console.warn('[AI Service] Gemini prompt enhancement failed, using original:', err.message);
   }
 
-  if (!process.env.HF_TOKEN) {
-    throw new Error('HF_TOKEN is missing in environment variables.');
-  }
-
   return {
-    enhancedPrompt,
-    hfToken: process.env.HF_TOKEN
+    enhancedPrompt
   };
 };
 

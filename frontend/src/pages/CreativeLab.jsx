@@ -30,8 +30,8 @@ import { useToast } from '../context/ToastContext';
 
 // Rotating messages for FLUX.1-dev's longer generation time
 const FLUX_LOADING_MESSAGES = [
-  'Sending request to FLUX.1-schnell...',
-  'Rendering your vision with AI...',
+  'Sending request to Pollinations AI...',
+  'Rendering your vision with FLUX...',
   'Applying artistic style and lighting...',
   'Generating 1024×1024 masterpiece...',
   'Polishing final details...',
@@ -108,108 +108,53 @@ const CreativeLab = () => {
     try {
       setGeneratingImages(true);
 
-      // Step 1: Get the Gemini-enhanced prompt + HF token from our backend
-      const config = await aiService.generateImages(imagePrompt);
-      if (!config || !config.hfToken) {
-        throw new Error('Missing Hugging Face token from backend.');
-      }
-
-      const FLUX_URL = 'https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev';
-      const fluxBody = JSON.stringify({
-        inputs: config.enhancedPrompt,
-        parameters: {
-          guidance_scale: 3.5,
-          num_inference_steps: 28,
-          width: 1024,
-          height: 1024
+      // Step 1: Get the Gemini-enhanced prompt from our backend
+      let enhancedPrompt = imagePrompt;
+      try {
+        const config = await aiService.generateImages(imagePrompt);
+        if (config && config.enhancedPrompt) {
+          enhancedPrompt = config.enhancedPrompt;
         }
-      });
-      const fluxHeaders = {
-        'Authorization': `Bearer ${config.hfToken}`,
-        'Content-Type': 'application/json',
-        'x-wait-for-model': 'true'
-      };
-
-      let response = null;
-
-      // Step 2 (LOCAL DEV): Try calling Hugging Face directly from the browser.
-      // The browser's network stack can sometimes bypass ISP-level DNS blocks
-      // that affect the local Node.js server process.
-      if (import.meta.env.DEV) {
-        try {
-          console.log('[Image Gen] DEV mode: attempting direct browser → HF call...');
-          const directRes = await fetch(FLUX_URL, {
-            method: 'POST',
-            headers: fluxHeaders,
-            body: fluxBody
-          });
-          const ct = directRes.headers.get('content-type') || '';
-          if (directRes.ok && !ct.includes('application/json')) {
-            response = directRes;
-            console.log('[Image Gen] ✅ Direct browser call to HF succeeded!');
-          } else {
-            console.warn('[Image Gen] Direct HF call returned JSON or error. Falling through to proxy...');
-          }
-        } catch (directErr) {
-          console.warn('[Image Gen] Direct HF call blocked (likely ISP):', directErr.message);
-        }
+      } catch (enhanceErr) {
+        console.warn('[Image Gen] Prompt enhancement failed, using original prompt:', enhanceErr.message);
+        // Continue with the original prompt — don't block image generation
       }
 
-      // Step 3: If direct call didn't work (or we're in production), use the proxy.
-      // In production this is the Vercel Edge function on Vercel's unrestricted servers.
-      if (!response) {
-        console.log('[Image Gen] Using /api/proxy-image...');
-        response = await fetch('/api/proxy-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: config.enhancedPrompt,
-            hfToken: config.hfToken
-          })
-        });
-      }
+      // Step 2: Build Pollinations.ai URL — free, no API key needed
+      const seed = Math.floor(Math.random() * 999999);
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
+
+      console.log('[Image Gen] Fetching from Pollinations.ai:', pollinationsUrl);
+
+      // Step 3: Fetch the image as a blob
+      const response = await fetch(pollinationsUrl);
 
       if (!response.ok) {
-        const errText = await response.text();
-        if (response.status === 503) {
-          throw new Error('FLUX model is warming up — please wait 20 seconds and try again.');
-        }
-        throw new Error(`Image generation failed (${response.status}): ${errText}`);
+        throw new Error(`Pollinations.ai returned HTTP ${response.status}`);
       }
 
-      // Step 4: Check if HF was unreachable and fell back to stock photo.
-      // Read X-HF-Status and X-HF-Error headers to show a precise diagnostic message.
-      const usedFallback = response.headers.get('X-Fallback-Used') === 'true';
-      if (usedFallback) {
-        const hfStatus = response.headers.get('X-HF-Status') || '0';
-        const hfError  = response.headers.get('X-HF-Error')  || 'unknown error';
-        const usedModel = response.headers.get('X-Used-Model') || 'FLUX.1-dev';
-
-        let fallbackMsg = '';
-        if (hfStatus === '403') {
-          fallbackMsg = `❌ Access denied (403): Your HF token does not have permission to use FLUX.1-dev. Accept the model license at huggingface.co/black-forest-labs/FLUX.1-dev and ensure your token has "Read" access.`;
-        } else if (hfStatus === '401') {
-          fallbackMsg = `❌ Invalid HF token (401): Check that the HF_TOKEN environment variable on Vercel is correct and hasn't expired.`;
-        } else if (hfStatus === '503') {
-          fallbackMsg = `⏳ FLUX model is loading (503). Wait 20 seconds and try again.`;
-        } else if (hfStatus === '0') {
-          fallbackMsg = `🌐 Network error: Could not reach Hugging Face. Check Vercel function logs for details.`;
-        } else {
-          fallbackMsg = `⚠️ FLUX returned HTTP ${hfStatus}. Showing stock photo. Error: ${hfError.slice(0, 120)}`;
-        }
-
-        console.error('[Image Gen] HF fallback details — status:', hfStatus, 'error:', hfError);
-        showToast(fallbackMsg, hfStatus === '503' ? 'warning' : 'error');
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const errJson = await response.json();
+        throw new Error(`Pollinations.ai returned an error: ${JSON.stringify(errJson)}`);
       }
 
-      // Step 5: Convert image blob → base64 and save to history
       const blob = await response.blob();
+
+      // Verify we got an actual image (at least 1KB)
+      if (blob.size < 1000) {
+        throw new Error('Received response too small to be a valid image.');
+      }
+
+      // Step 4: Convert to base64 and display
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
         const base64data = reader.result;
         setImageOutputs([base64data]);
         setImageLoaded(false);
+
+        // Save to history
         try {
           const saved = await aiService.saveImageCreation(imagePrompt, [base64data]);
           setCurrentImageCreationId(saved.creationId);
@@ -219,17 +164,12 @@ const CreativeLab = () => {
         }
       };
 
+      showToast('Image generated successfully! ✨', 'success');
+
     } catch (err) {
       console.error('Generate Images Error:', err);
-      let msg = err.message || 'Failed to generate image. Please try again.';
-      if (
-        msg.toLowerCase().includes('enotfound') ||
-        msg.toLowerCase().includes('failed to fetch') ||
-        msg.toLowerCase().includes('networkerror')
-      ) {
-        msg = '🌐 Cannot reach Hugging Face from your network. Deploy to Vercel to use FLUX, or enable a VPN locally.';
-      }
-      showToast(msg, 'error');
+      const msg = err.message || 'Failed to generate image. Please try again.';
+      showToast(`❌ Image generation failed: ${msg}`, 'error');
     } finally {
       setGeneratingImages(false);
     }
@@ -295,7 +235,7 @@ const CreativeLab = () => {
         </div>
         <div className="flex items-center gap-2 bg-surface-container-highest/50 px-3 py-1.5 rounded-full border-ghost w-fit">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image: FLUX.1-schnell</span>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image: Pollinations AI</span>
         </div>
       </div>
 
@@ -436,7 +376,7 @@ const CreativeLab = () => {
                     <p className="text-sm font-bold text-on-surface transition-all duration-500">
                       {FLUX_LOADING_MESSAGES[loadingMessageIdx]}
                     </p>
-                    <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">FLUX.1-dev • High Quality</p>
+                    <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">Pollinations AI • FLUX</p>
                   </div>
                   {/* Progress bar */}
                   <div className="w-48 h-1 bg-surface-container-high rounded-full overflow-hidden">
@@ -482,7 +422,7 @@ const CreativeLab = () => {
                     <ImageIcon className="w-12 h-12" />
                  </div>
                  <p className="text-sm font-medium">Your masterpiece will appear here</p>
-                 <p className="text-[10px] uppercase tracking-widest">Powered by FLUX.1-dev</p>
+                 <p className="text-[10px] uppercase tracking-widest">Powered by Pollinations AI</p>
               </div>
             )}
           </div>
