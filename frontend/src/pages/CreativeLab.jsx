@@ -30,11 +30,12 @@ import { useToast } from '../context/ToastContext';
 
 // Rotating messages for FLUX.1-dev's longer generation time
 const FLUX_LOADING_MESSAGES = [
-  'Sending request to Pollinations AI...',
-  'Rendering your vision with FLUX...',
-  'Applying artistic style and lighting...',
+  'Submitting to AI Horde...',
+  'Waiting for GPU worker...',
+  'Rendering your vision with Stable Diffusion...',
   'Generating 1024×1024 masterpiece...',
-  'Polishing final details...',
+  'Applying artistic details...',
+  'Polishing final result...',
   'Almost ready ✨',
 ];
 
@@ -117,36 +118,97 @@ const CreativeLab = () => {
         }
       } catch (enhanceErr) {
         console.warn('[Image Gen] Prompt enhancement failed, using original prompt:', enhanceErr.message);
-        // Continue with the original prompt — don't block image generation
       }
 
-      // Step 2: Build Pollinations.ai URL — free, no API key needed
-      const seed = Math.floor(Math.random() * 999999);
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?model=flux&width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
+      // Step 2: Submit async generation request to AI Horde (free, no signup)
+      const HORDE_API = 'https://aihorde.net/api/v2';
+      const ANON_KEY = '0000000000'; // Anonymous access
 
-      console.log('[Image Gen] Fetching from Pollinations.ai:', pollinationsUrl);
+      console.log('[Image Gen] Submitting to AI Horde:', enhancedPrompt);
 
-      // Step 3: Fetch the image as a blob
-      const response = await fetch(pollinationsUrl);
+      const submitRes = await fetch(`${HORDE_API}/generate/async`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ANON_KEY,
+          'Client-Agent': 'SocioSync:1.0:sociosync.app'
+        },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          params: {
+            sampler_name: 'k_euler_a',
+            width: 1024,
+            height: 1024,
+            steps: 25,
+            cfg_scale: 7,
+            n: 1
+          },
+          nsfw: false,
+          censor_nsfw: true,
+          r2: true
+        })
+      });
 
-      if (!response.ok) {
-        throw new Error(`Pollinations.ai returned HTTP ${response.status}`);
+      if (!submitRes.ok) {
+        const errText = await submitRes.text();
+        throw new Error(`AI Horde submission failed (${submitRes.status}): ${errText}`);
       }
 
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const errJson = await response.json();
-        throw new Error(`Pollinations.ai returned an error: ${JSON.stringify(errJson)}`);
+      const submitData = await submitRes.json();
+      const jobId = submitData.id;
+
+      if (!jobId) {
+        throw new Error('AI Horde did not return a job ID.');
       }
 
-      const blob = await response.blob();
+      console.log('[Image Gen] Job submitted, ID:', jobId);
 
-      // Verify we got an actual image (at least 1KB)
+      // Step 3: Poll for completion (check every 3 seconds, max 120 seconds)
+      const MAX_POLLS = 40;
+      const POLL_INTERVAL = 3000;
+      let imageUrl = null;
+
+      for (let i = 0; i < MAX_POLLS; i++) {
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+
+        const statusRes = await fetch(`${HORDE_API}/generate/status/${jobId}`, {
+          headers: { 'Client-Agent': 'SocioSync:1.0:sociosync.app' }
+        });
+
+        if (!statusRes.ok) {
+          console.warn(`[Image Gen] Poll ${i + 1} failed:`, statusRes.status);
+          continue;
+        }
+
+        const statusData = await statusRes.json();
+        console.log(`[Image Gen] Poll ${i + 1}: done=${statusData.done}, wait_time=${statusData.wait_time}s`);
+
+        if (statusData.faulted) {
+          throw new Error('Image generation faulted on AI Horde. Please try again.');
+        }
+
+        if (statusData.done && statusData.generations && statusData.generations.length > 0) {
+          imageUrl = statusData.generations[0].img;
+          console.log('[Image Gen] ✅ Image ready:', imageUrl);
+          break;
+        }
+      }
+
+      if (!imageUrl) {
+        throw new Error('Image generation timed out after 2 minutes. The AI Horde may be busy — please try again.');
+      }
+
+      // Step 4: Fetch the image and convert to base64 for display
+      const imageRes = await fetch(imageUrl);
+      if (!imageRes.ok) {
+        throw new Error(`Failed to download generated image (HTTP ${imageRes.status})`);
+      }
+
+      const blob = await imageRes.blob();
       if (blob.size < 1000) {
         throw new Error('Received response too small to be a valid image.');
       }
 
-      // Step 4: Convert to base64 and display
       const reader = new FileReader();
       reader.readAsDataURL(blob);
       reader.onloadend = async () => {
@@ -235,7 +297,7 @@ const CreativeLab = () => {
         </div>
         <div className="flex items-center gap-2 bg-surface-container-highest/50 px-3 py-1.5 rounded-full border-ghost w-fit">
           <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image: Pollinations AI</span>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Image: AI Horde</span>
         </div>
       </div>
 
@@ -376,13 +438,13 @@ const CreativeLab = () => {
                     <p className="text-sm font-bold text-on-surface transition-all duration-500">
                       {FLUX_LOADING_MESSAGES[loadingMessageIdx]}
                     </p>
-                    <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">Pollinations AI • FLUX</p>
+                    <p className="text-[10px] text-on-surface-variant font-medium uppercase tracking-widest">AI Horde • Community GPU</p>
                   </div>
                   {/* Progress bar */}
                   <div className="w-48 h-1 bg-surface-container-high rounded-full overflow-hidden">
                     <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
                   </div>
-                  <p className="text-[10px] text-on-surface-variant/60">This may take up to 30 seconds</p>
+                  <p className="text-[10px] text-on-surface-variant/60">This may take up to 2 minutes</p>
                 </div>
               </div>
             ) : imageOutputs && imageOutputs.length > 0 ? (
@@ -422,7 +484,7 @@ const CreativeLab = () => {
                     <ImageIcon className="w-12 h-12" />
                  </div>
                  <p className="text-sm font-medium">Your masterpiece will appear here</p>
-                 <p className="text-[10px] uppercase tracking-widest">Powered by Pollinations AI</p>
+                 <p className="text-[10px] uppercase tracking-widest">Powered by AI Horde</p>
               </div>
             )}
           </div>
