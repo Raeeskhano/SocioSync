@@ -137,8 +137,8 @@ const CreativeLab = () => {
           prompt: enhancedPrompt,
           params: {
             sampler_name: 'k_euler_a',
-            width: 1024,
-            height: 1024,
+            width: 512,
+            height: 512,
             steps: 25,
             cfg_scale: 7,
             n: 1
