@@ -163,9 +163,9 @@ const CreativeLab = () => {
 
       console.log('[Image Gen] Job submitted, ID:', jobId);
 
-      // Step 3: Poll for completion (check every 3 seconds, max 120 seconds)
-      const MAX_POLLS = 40;
-      const POLL_INTERVAL = 3000;
+      // Step 3: Poll for completion (check every 10 seconds, max ~20 minutes)
+      const MAX_POLLS = 120;
+      const POLL_INTERVAL = 10000;
       let imageUrl = null;
 
       for (let i = 0; i < MAX_POLLS; i++) {
@@ -195,7 +195,7 @@ const CreativeLab = () => {
       }
 
       if (!imageUrl) {
-        throw new Error('Image generation timed out after 2 minutes. The AI Horde may be busy — please try again.');
+        throw new Error('Image generation timed out after 20 minutes. The AI Horde may be busy — please try again.');
       }
 
       // Step 4: Fetch the image and convert to base64 for display
@@ -444,7 +444,7 @@ const CreativeLab = () => {
                   <div className="w-48 h-1 bg-surface-container-high rounded-full overflow-hidden">
                     <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '60%' }} />
                   </div>
-                  <p className="text-[10px] text-on-surface-variant/60">This may take up to 2 minutes</p>
+                  <p className="text-[10px] text-on-surface-variant/60">This may take up to 10-15 minutes on the free tier</p>
                 </div>
               </div>
             ) : imageOutputs && imageOutputs.length > 0 ? (
