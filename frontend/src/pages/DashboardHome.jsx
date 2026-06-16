@@ -290,19 +290,19 @@ const DashboardHome = () => {
                       </div>
                       <div className="flex items-center justify-between xl:justify-end gap-3 sm:gap-6 xl:gap-8 w-full xl:w-auto xl:pr-2 pl-14 xl:pl-0">
                         <div className="flex flex-col items-end">
-                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.impressions || '120+'}</span>
+                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.impressions || 0}</span>
                           <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Impressions</span>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.likes || 12}</span>
+                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.likes || 0}</span>
                           <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Likes</span>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.comments || 6}</span>
+                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.comments || 0}</span>
                           <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Comments</span>
                         </div>
                         <div className="flex flex-col items-end">
-                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.shares || 1}</span>
+                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.shares || 0}</span>
                           <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Shares</span>
                         </div>
                         <button className="text-on-surface-variant hover:text-on-surface p-1">

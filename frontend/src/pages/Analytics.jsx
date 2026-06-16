@@ -373,19 +373,19 @@ const Analytics = () => {
                             </div>
                             <div className="flex items-center justify-between xl:justify-end gap-3 sm:gap-6 xl:gap-10 w-full xl:w-auto xl:pr-2 pl-16 xl:pl-0">
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-on-surface">{post.impressions || '120+'}</span>
+                                    <span className="text-sm font-bold text-on-surface">{post.impressions || 0}</span>
                                     <span className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest">Impressions</span>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-on-surface">{post.likes || 12}</span>
+                                    <span className="text-sm font-bold text-on-surface">{post.likes || 0}</span>
                                     <span className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest">Likes</span>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-on-surface">{post.comments || 6}</span>
+                                    <span className="text-sm font-bold text-on-surface">{post.comments || 0}</span>
                                     <span className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest">Comments</span>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-sm font-bold text-on-surface">{post.shares || 1}</span>
+                                    <span className="text-sm font-bold text-on-surface">{post.shares || 0}</span>
                                     <span className="text-[9px] uppercase font-bold text-on-surface-variant tracking-widest">Shares</span>
                                 </div>
                                 <div className="text-on-surface-variant hover:text-primary transition-colors">

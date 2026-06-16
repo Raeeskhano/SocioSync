@@ -20,6 +20,10 @@ const postSchema = new mongoose.Schema({
   publishedAt: Date,
   reach: { type: Number, default: 0 },
   engagement: { type: Number, default: 0 },
+  impressions: { type: Number, default: 0 },
+  likes: { type: Number, default: 0 },
+  comments: { type: Number, default: 0 },
+  shares: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
