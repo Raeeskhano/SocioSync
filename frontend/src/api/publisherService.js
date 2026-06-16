@@ -38,6 +38,13 @@ const publisherService = {
   deletePost: async (id) => {
     const response = await axiosInstance.delete(`/posts/${id}`);
     return response.data;
+  },
+
+  updatePost: async (id, formData) => {
+    const response = await axiosInstance.put(`/posts/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   }
 };
 

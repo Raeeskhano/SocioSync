@@ -10,7 +10,8 @@ const {
   getRecentPosts,
   getPosts,
   getPost,
-  deletePost
+  deletePost,
+  updatePost
 } = require('../controllers/publisherController');
 
 router.use(protect);
@@ -21,6 +22,7 @@ router.post('/schedule', uploadMedia, checkAndRecordStorage, schedulePost);
 router.post('/draft', saveDraft);
 router.get('/', getPosts);
 router.get('/:id', getPost);
+router.put('/:id', uploadMedia, checkAndRecordStorage, updatePost);
 router.delete('/:id', deletePost);
 
 module.exports = router;

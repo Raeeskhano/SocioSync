@@ -253,6 +253,38 @@ const deletePost = async (req, res, next) => {
   }
 };
 
+const updatePost = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const postId = req.params.id;
+    const { caption, scheduledAt } = req.body;
+    const platforms = JSON.parse(req.body.platforms || '[]');
+    
+    const post = await Post.findOne({ _id: postId, userId });
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    if (caption) post.caption = caption;
+    if (scheduledAt) post.scheduledAt = new Date(scheduledAt);
+    if (platforms && platforms.length > 0) {
+      post.platforms = platforms.map(p => ({ name: p, status: 'pending' }));
+    }
+
+    if (req.file) {
+      post.mediaUrl = req.file.path.replace(/\\/g, '/');
+      post.mediaMimeType = req.file.mimetype;
+      post.mediaType = req.file.mimetype.startsWith('video') ? 'video' : 'image';
+    }
+
+    await post.save();
+
+    res.status(200).json({ success: true, postId: post._id, message: 'Post updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   publishPost,
   schedulePost,
@@ -260,5 +292,6 @@ module.exports = {
   getRecentPosts,
   getPosts,
   getPost,
-  deletePost
+  deletePost,
+  updatePost
 };

@@ -61,8 +61,9 @@ const Publisher = () => {
   const [filePreview, setFilePreview] = useState(null);
   const [scheduledAt, setScheduledAt] = useState('');
 
-  // Drafts state
   const [drafts, setDrafts] = useState([]);
+  const [scheduledPosts, setScheduledPosts] = useState([]);
+  const [editingPostId, setEditingPostId] = useState(null);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   useEffect(() => {
@@ -72,7 +73,9 @@ const Publisher = () => {
         const res = await publisherService.getPosts();
         if (Array.isArray(res)) {
           const draftPosts = res.filter(p => p.status === 'draft');
+          const schedPosts = res.filter(p => p.status === 'scheduled');
           setDrafts(draftPosts);
+          setScheduledPosts(schedPosts);
         }
       } catch (err) {
         console.error('Failed to load drafts:', err);
@@ -208,6 +211,10 @@ const Publisher = () => {
       showToast('Please add a caption or media.', 'error');
       return;
     }
+    if (content && content.length > 2200) {
+      showToast('Caption exceeds the 2200 character limit.', 'error');
+      return;
+    }
     if (selectedPlatforms.length === 0) {
       showToast('Please select at least one platform.', 'error');
       return;
@@ -228,8 +235,20 @@ const Publisher = () => {
 
       if (isScheduling) {
         formData.append('scheduledAt', scheduledAt);
-        await publisherService.schedulePost(formData);
-        showToast('Post scheduled successfully!', 'success');
+        if (editingPostId) {
+          await publisherService.updatePost(editingPostId, formData);
+          showToast('Scheduled post updated successfully!', 'success');
+        } else {
+          await publisherService.schedulePost(formData);
+          showToast('Post scheduled successfully!', 'success');
+        }
+        
+        // Refresh lists
+        const res = await publisherService.getPosts();
+        if (Array.isArray(res)) {
+          setScheduledPosts(res.filter(p => p.status === 'scheduled'));
+          setDrafts(res.filter(p => p.status === 'draft'));
+        }
       } else {
         const response = await publisherService.publishPost(formData);
         const results = response.results || [];
@@ -248,6 +267,7 @@ const Publisher = () => {
       setSelectedFile(null);
       setFilePreview(null);
       setScheduledAt('');
+      setEditingPostId(null);
     } catch (error) {
       console.error('Publishing error:', error);
       showToast(error.response?.data?.message || 'Failed to process post.', 'error');
@@ -290,6 +310,76 @@ const Publisher = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         {/* Left Column: Editor & Config */}
         <div className="lg:col-span-7 flex flex-col gap-8">
+
+          {/* Active Scheduled Posts Section */}
+          {scheduledPosts.length > 0 && (
+            <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Active Scheduled Posts ({scheduledPosts.length})</span>
+                </div>
+              </div>
+              <div className="flex gap-4 pb-3 custom-scroll-x">
+                {scheduledPosts.map((post) => (
+                  <div 
+                    key={post._id || post.id} 
+                    className="flex-shrink-0 w-72 p-4 rounded-2xl bg-surface-container border border-primary/20 hover:border-primary/50 transition-all flex flex-col justify-between gap-3 group relative"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(post.scheduledAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                        </span>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              dispatch(setContent(post.caption));
+                              if (post.platforms && post.platforms.length > 0) {
+                                post.platforms.forEach(p => {
+                                  if (!selectedPlatforms.includes(p.name)) {
+                                    dispatch(togglePlatform(p.name));
+                                  }
+                                });
+                              }
+                              setScheduledAt(post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : '');
+                              dispatch(setIsScheduling(true));
+                              setEditingPostId(post._id || post.id);
+                            }}
+                            className="p-1 rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-all cursor-pointer"
+                            title="Edit Schedule"
+                          >
+                            <FileEdit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              try {
+                                await publisherService.deletePost(post._id || post.id);
+                                setScheduledPosts(prev => prev.filter(p => (p._id || p.id) !== (post._id || post.id)));
+                                showToast('Scheduled post deleted', 'success');
+                              } catch (err) {
+                                console.error('Failed to delete scheduled post:', err);
+                              }
+                            }}
+                            className="p-1 rounded-lg text-on-surface-variant hover:text-error hover:bg-error/15 transition-all cursor-pointer"
+                            title="Delete Schedule"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-on-surface line-clamp-2 leading-relaxed font-sans">{post.caption || '(No caption)'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* AI Suggested & Saved Drafts Section */}
           {drafts.length > 0 && (
@@ -648,7 +738,7 @@ const Publisher = () => {
                     </button>
                     <button 
                         onClick={handlePublish}
-                        disabled={publishing}
+                        disabled={publishing || charCount > charLimit}
                         className="flex-[2] h-12 rounded-2xl bg-gradient-to-r from-primary to-primary-dim text-on-primary font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100"
                     >
                         {publishing ? (
@@ -656,7 +746,7 @@ const Publisher = () => {
                         ) : (
                             <Send className="w-4 h-4" />
                         )}
-                        {publishing ? 'Processing...' : (isScheduling ? 'Confirm Schedule' : 'Publish Now')}
+                        {publishing ? 'Processing...' : (isScheduling ? (editingPostId ? 'Update Schedule' : 'Confirm Schedule') : 'Publish Now')}
                     </button>
                 </div>
                 <button 
@@ -664,6 +754,7 @@ const Publisher = () => {
                         dispatch(resetPublisher());
                         setSelectedFile(null);
                         setFilePreview(null);
+                        setEditingPostId(null);
                     }}
                     className="text-xs font-bold text-on-surface-variant hover:text-error text-center transition-colors uppercase tracking-widest flex items-center justify-center gap-1.5"
                 >
