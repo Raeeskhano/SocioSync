@@ -231,8 +231,17 @@ const Publisher = () => {
         await publisherService.schedulePost(formData);
         showToast('Post scheduled successfully!', 'success');
       } else {
-        await publisherService.publishPost(formData);
-        showToast('Post published successfully!', 'success');
+        const response = await publisherService.publishPost(formData);
+        const results = response.results || [];
+        const failed = results.filter(r => !r.success);
+        
+        if (failed.length === 0) {
+          showToast('Post published successfully!', 'success');
+        } else if (failed.length === results.length) {
+          showToast(`Failed to publish: ${failed[0].error}`, 'error');
+        } else {
+          showToast(`Partial success. Failed on ${failed.map(f => f.platform).join(', ')}: ${failed[0].error}`, 'warning');
+        }
       }
       
       dispatch(resetPublisher());

@@ -378,9 +378,16 @@ const postToTwitter = async (token, tokenSecret, caption, mediaUrl) => {
     }
 
     // Post the tweet
-    const tweetPayload = { text: caption };
+    const tweetPayload = {};
+    if (caption && caption.trim() !== '') {
+      tweetPayload.text = caption;
+    }
     if (mediaId) {
       tweetPayload.media = { media_ids: [mediaId] };
+    }
+    
+    if (!tweetPayload.text && !tweetPayload.media) {
+      throw new Error("Tweet must contain either text or media.");
     }
 
     const tweetResponse = await rwClient.v2.tweet(tweetPayload);
