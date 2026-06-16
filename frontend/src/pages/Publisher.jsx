@@ -234,7 +234,7 @@ const Publisher = () => {
       }
 
       if (isScheduling) {
-        formData.append('scheduledAt', scheduledAt);
+        formData.append('scheduledAt', new Date(scheduledAt).toISOString());
         if (editingPostId) {
           await publisherService.updatePost(editingPostId, formData);
           showToast('Scheduled post updated successfully!', 'success');
@@ -345,7 +345,7 @@ const Publisher = () => {
                                   }
                                 });
                               }
-                              setScheduledAt(post.scheduledAt ? new Date(post.scheduledAt).toISOString().slice(0, 16) : '');
+                              setScheduledAt(post.scheduledAt ? new Date(new Date(post.scheduledAt).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '');
                               dispatch(setIsScheduling(true));
                               setEditingPostId(post._id || post.id);
                             }}
