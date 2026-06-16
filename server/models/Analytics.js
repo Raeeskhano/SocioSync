@@ -9,6 +9,7 @@ const analyticsSchema = new mongoose.Schema({
   shares: { type: Number, default: 0 },
   likes: { type: Number, default: 0 },
   comments: { type: Number, default: 0 },
+  follows: { type: Number, default: 0 },
   reach: { type: Number, default: 0 },
   engagedUsers: { type: Number, default: 0 },
   engagementRate: { type: Number, default: 0 },
