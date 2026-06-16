@@ -60,6 +60,7 @@ const Publisher = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [scheduledAt, setScheduledAt] = useState('');
+  const [isExpandedPreview, setIsExpandedPreview] = useState(false);
 
   const [drafts, setDrafts] = useState([]);
   const [scheduledPosts, setScheduledPosts] = useState([]);
@@ -673,7 +674,21 @@ const Publisher = () => {
                         </div>
 
                         <div className="text-sm text-on-surface leading-relaxed min-h-[60px] whitespace-pre-wrap flex-shrink-0">
-                            {content ? content : <span className="opacity-20 italic">What's the story today?</span>}
+                            {content ? (
+                                <>
+                                    {isExpandedPreview || content.length <= 150 
+                                        ? content 
+                                        : `${content.substring(0, 150)}... `}
+                                    {content.length > 150 && (
+                                        <button 
+                                            onClick={() => setIsExpandedPreview(!isExpandedPreview)}
+                                            className="text-primary hover:text-primary-dim font-medium ml-1 transition-colors"
+                                        >
+                                            {isExpandedPreview ? 'show less' : 'show more'}
+                                        </button>
+                                    )}
+                                </>
+                            ) : <span className="opacity-20 italic">What's the story today?</span>}
                         </div>
 
                         {filePreview ? (
