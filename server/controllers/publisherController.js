@@ -63,6 +63,7 @@ const publishPost = async (req, res, next) => {
     const likes = someSuccessful ? Math.floor(Math.random() * (30 - 10 + 1)) + 10 : 0;
     const comments = someSuccessful ? Math.floor(Math.random() * (10 - 3 + 1)) + 3 : 0;
     const shares = someSuccessful ? Math.floor(Math.random() * (3 - 1 + 1)) + 1 : 0;
+    const follows = someSuccessful ? Math.floor(Math.random() * 3) + 1 : 0;
     const engagement = likes + comments + shares;
     const reach = impressions;
 
@@ -85,6 +86,7 @@ const publishPost = async (req, res, next) => {
       likes,
       comments,
       shares,
+      follows,
       engagement,
       reach
     });
@@ -101,6 +103,7 @@ const publishPost = async (req, res, next) => {
               likes,
               comments,
               shares,
+              follows,
               reach,
               engagedUsers: engagement,
               engagementRate: impressions > 0 ? (engagement / impressions) * 100 : 0,
@@ -195,7 +198,7 @@ const getRecentPosts = async (req, res, next) => {
     const posts = await Post.find({ userId, status: { $in: ['published', 'partial'] } })
       .sort({ publishedAt: -1 })
       .limit(limit)
-      .select('caption mediaUrl platforms status publishedAt reach engagement impressions likes comments shares');
+      .select('caption mediaUrl platforms status publishedAt reach engagement impressions likes comments shares follows');
 
     const formattedPosts = posts.map((post) => ({
       id: post._id,
@@ -209,7 +212,8 @@ const getRecentPosts = async (req, res, next) => {
       impressions: post.impressions,
       likes: post.likes,
       comments: post.comments,
-      shares: post.shares
+      shares: post.shares,
+      follows: post.follows
     }));
 
     res.status(200).json({ success: true, data: formattedPosts });

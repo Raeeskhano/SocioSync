@@ -305,6 +305,10 @@ const DashboardHome = () => {
                           <span className="text-xs md:text-sm font-bold text-on-surface">{post.shares || 0}</span>
                           <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Shares</span>
                         </div>
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs md:text-sm font-bold text-on-surface">{post.follows || 0}</span>
+                          <span className="text-[9px] md:text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Follows</span>
+                        </div>
                         <button className="text-on-surface-variant hover:text-on-surface p-1">
                           <MoreVertical className="w-4 h-4" />
                         </button>
