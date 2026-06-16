@@ -450,11 +450,26 @@ const Publisher = () => {
                     <MessageSquare className="w-4 h-4 text-primary" />
                     <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Caption</span>
                 </div>
-                <span className={`text-[10px] font-bold ${charCount > charLimit * 0.9 ? 'text-error' : 'text-on-surface-variant opacity-60'}`}>
+                <span className={`text-[10px] font-bold ${charCount > charLimit ? 'text-error animate-pulse' : 'text-[#4CAF50]'}`}>
                     {charCount} / {charLimit}
                 </span>
             </div>
-            <Card level="lowest" className="p-0 overflow-hidden bg-surface-container-low/30 border-ghost">
+
+            {charCount > charLimit && (
+                <div className="bg-error/10 border border-error/20 p-3 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-1 rounded-full bg-error/20 text-error mt-0.5">
+                        <X className="w-3 h-3" />
+                    </div>
+                    <div>
+                        <h5 className="text-xs font-bold text-error uppercase tracking-wider mb-0.5">Character Limit Exceeded</h5>
+                        <p className="text-[11px] text-error/80 leading-relaxed">
+                            Your caption is currently {charCount - charLimit} characters over the {charLimit} limit. Please shorten it to enable publishing.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            <Card level="lowest" className={`p-0 overflow-hidden transition-colors duration-300 ${charCount > charLimit ? 'bg-error/5 border-error/50 shadow-[0_0_15px_rgba(255,82,82,0.15)]' : 'bg-surface-container-low/30 border-ghost'}`}>
                 <textarea 
                     value={content}
                     onChange={handleContentChange}
