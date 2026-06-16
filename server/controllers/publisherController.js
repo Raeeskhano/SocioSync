@@ -62,8 +62,8 @@ const publishPost = async (req, res, next) => {
     const impressions = someSuccessful ? Math.floor(Math.random() * (300 - 100 + 1)) + 100 : 0;
     const likes = someSuccessful ? Math.floor(Math.random() * (30 - 10 + 1)) + 10 : 0;
     const comments = someSuccessful ? Math.floor(Math.random() * (10 - 3 + 1)) + 3 : 0;
-    const shares = someSuccessful ? Math.floor(Math.random() * 2) + 1 : 0;
-    const follows = someSuccessful ? Math.floor(Math.random() * 3) + 1 : 0;
+    const shares = someSuccessful ? Math.floor(Math.random() * 2) : 0;
+    const follows = someSuccessful ? Math.floor(Math.random() * 2) : 0;
     const engagement = likes + comments + shares;
     const reach = impressions;
 
