@@ -67,6 +67,7 @@ const Publisher = () => {
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   useEffect(() => {
+    let intervalId;
     const fetchDrafts = async () => {
       try {
         setLoadingDrafts(true);
@@ -83,7 +84,11 @@ const Publisher = () => {
         setLoadingDrafts(false);
       }
     };
+    
     fetchDrafts();
+    intervalId = setInterval(fetchDrafts, 30000); // Poll every 30 seconds
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   // Image Editor States
