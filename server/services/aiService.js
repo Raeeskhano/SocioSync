@@ -27,7 +27,7 @@ const getModel = () => {
   if (!process.env.GEMINI_API_KEY) {
     console.error('CRITICAL: GEMINI_API_KEY is missing from .env');
   }
-  return genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+  return genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
 };
 
 const TONE_SYSTEM_PROMPTS = {
