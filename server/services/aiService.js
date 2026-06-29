@@ -23,11 +23,11 @@ const stripMarkdown = (text) => {
     .trim();
 };
 
-const getModel = () => {
+const getModel = (modelName = 'gemini-3.5-flash') => {
   if (!process.env.GEMINI_API_KEY) {
     console.error('CRITICAL: GEMINI_API_KEY is missing from .env');
   }
-  return genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+  return genAI.getGenerativeModel({ model: modelName });
 };
 
 const TONE_SYSTEM_PROMPTS = {
@@ -50,7 +50,7 @@ const suggestContentDrafts = async (postTitles) => {
   try {
     const prompt = `Based on these recent post topics: [${postTitles}], suggest 3 new viral content ideas for social media. Return a raw JSON array of objects with exactly these keys: "title", "platform", "contentType". Do not include markdown formatting or backticks.`;
 
-    const result = await getModel().generateContent(prompt);
+    const result = await getModel('gemini-3.5-flash').generateContent(prompt);
     const response = await result.response;
     let text = response.text();
     text = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -88,9 +88,22 @@ const generateTextWithTone = async (prompt, tone) => {
   const systemPrompt = TONE_SYSTEM_PROMPTS[tone] || TONE_SYSTEM_PROMPTS.humanized;
   const fullPrompt = `${systemPrompt}\n\nUser Request: ${prompt}`;
   
-  const result = await getModel().generateContent(fullPrompt);
-  const response = await result.response;
-  return stripMarkdown(response.text());
+  const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-pro-latest'];
+  let lastError = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      console.log(`[AI Service] Generating text with model: ${modelName}`);
+      const result = await getModel(modelName).generateContent(fullPrompt);
+      const response = await result.response;
+      return stripMarkdown(response.text());
+    } catch (err) {
+      console.error(`[AI Service] Error with model ${modelName}:`, err.message);
+      lastError = err;
+    }
+  }
+  
+  throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
 };
 
 const generateImages = async (userPrompt) => {
@@ -110,7 +123,7 @@ User request: "${userPrompt}"
 
 Output ONLY the refined prompt text:`;
 
-    const result = await getModel().generateContent(geminiPrompt);
+    const result = await getModel('gemini-3.5-flash').generateContent(geminiPrompt);
     const raw = result.response.text().trim();
     enhancedPrompt = raw.replace(/^["']|["']$/g, '').trim();
     console.log(`[AI Service] Enhanced prompt: ${enhancedPrompt}`);
@@ -126,9 +139,22 @@ Output ONLY the refined prompt text:`;
 const rewriteCaption = async (caption, tone) => {
   try {
     const prompt = `Rewrite this social media caption in a ${tone || 'professional'} tone, keeping it under 2000 characters, optimized for engagement. Keep hashtags if present. NEVER use markdown formatting like **, ##, *, or _. Write plain text only, use ALL CAPS for emphasis and emojis for visual appeal. Caption: "${caption}"`;
-    const result = await getModel().generateContent(prompt);
-    const response = await result.response;
-    return stripMarkdown(response.text());
+    
+    const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-pro-latest'];
+    let lastError = null;
+    
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[AI Service] Rewriting caption with model: ${modelName}`);
+        const result = await getModel(modelName).generateContent(prompt);
+        const response = await result.response;
+        return stripMarkdown(response.text());
+      } catch (err) {
+        console.error(`[AI Service] Rewrite Error with model ${modelName}:`, err.message);
+        lastError = err;
+      }
+    }
+    throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
   } catch (error) {
     console.error('Gemini Rewrite Error:', error);
     throw error;
