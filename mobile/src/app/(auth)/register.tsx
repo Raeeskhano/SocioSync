@@ -78,11 +78,11 @@ export default function Register() {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-background">
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} className="p-6">
         <View className="w-full max-w-md mx-auto flex flex-col gap-6">
-          <View className="flex flex-row items-center gap-3 mb-2">
-            <View className="w-10 h-10 rounded-xl flex items-center justify-center shadow-ambient overflow-hidden">
+          <View className="flex flex-row items-center gap-4 mb-4 mt-2">
+            <View className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-ambient overflow-hidden">
               <Image source={require('../../../assets/logo.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
             </View>
-            <Text className="font-display font-bold text-xl tracking-tight text-on-surface">SocioSync</Text>
+            <Text className="font-display font-bold text-3xl tracking-tight text-on-surface">SocioSync</Text>
           </View>
 
           <View className="flex flex-col gap-1">
