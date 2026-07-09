@@ -1,0 +1,10 @@
+import { Stack } from 'expo-router';
+
+export default function SettingsLayout() {
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#060e20' } }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="integrations" />
+    </Stack>
+  );
+}
