@@ -9,7 +9,7 @@ import { fetchProfile, saveProfile, uploadAvatar, fetchSession, fetchApiKeys, ge
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://10.0.2.2:5000';
+const API_BASE = 'https://socio-sync-pi.vercel.app';
 
 const TIMEZONES = [
   { value: 'America/New_York', label: 'Eastern Time (ET)' },

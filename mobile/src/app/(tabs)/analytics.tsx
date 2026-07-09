@@ -203,7 +203,7 @@ export default function Analytics() {
             <View className="flex-row items-center gap-3 mb-3">
               <View className="w-12 h-12 rounded-lg bg-surface border border-ghost overflow-hidden">
                 {post.thumbnail ? (
-                  <Image source={{ uri: post.thumbnail.startsWith('http') ? post.thumbnail : `http://10.0.2.2:5000${post.thumbnail}` }} className="w-full h-full" />
+                  <Image source={{ uri: post.thumbnail.startsWith('http') ? post.thumbnail : `https://socio-sync-pi.vercel.app${post.thumbnail}` }} className="w-full h-full" />
                 ) : (
                   <View className="w-full h-full bg-surface-variant" />
                 )}

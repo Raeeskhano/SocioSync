@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000/api',
+  baseURL: 'https://socio-sync-pi.vercel.app/api',
   withCredentials: true,
 });
 

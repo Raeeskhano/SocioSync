@@ -9,7 +9,7 @@ import integrationService from '../../api/integrationService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://10.0.2.2:5000';
+const API_BASE = 'https://socio-sync-pi.vercel.app';
 
 const PlatformConfig: any = {
   linkedin: { name: 'LinkedIn', color: '#0A66C2' },

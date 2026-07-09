@@ -9,7 +9,7 @@ import StatCard from '../../components/ui/StatCard';
 import Button from '../../components/ui/Button';
 import GrowthChart from '../../components/ui/GrowthChart';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL?.replace('/api', '') || 'http://10.0.2.2:5000';
+const API_BASE = 'https://socio-sync-pi.vercel.app';
 
 export default function DashboardHome() {
   const router = useRouter();
