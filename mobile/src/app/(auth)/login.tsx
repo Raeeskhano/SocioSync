@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
 import { Link } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { Zap, Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
@@ -53,8 +53,8 @@ export default function Login() {
         <View className="w-full max-w-md mx-auto flex flex-col gap-8">
           
           <View className="flex flex-row items-center gap-3 mb-4">
-            <View className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-ambient">
-              <Zap color="#1a0044" size={20} />
+            <View className="w-10 h-10 rounded-xl flex items-center justify-center shadow-ambient overflow-hidden">
+              <Image source={require('../../../assets/logo.png')} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
             </View>
             <Text className="font-display font-bold text-xl tracking-tight text-on-surface">SocioSync</Text>
           </View>

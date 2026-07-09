@@ -1,11 +1,26 @@
 import { Tabs } from 'expo-router';
 import { Home, PenTool, LayoutDashboard, BarChart3, Settings, Users } from 'lucide-react-native';
+import { View, Image } from 'react-native';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown: false,
+        headerShown: true,
+        headerStyle: {
+          backgroundColor: '#0a1122',
+        },
+        headerTitleStyle: {
+          fontFamily: 'Outfit-Bold',
+          color: '#ffffff',
+        },
+        headerTitleAlign: 'center',
+        headerShadowVisible: false,
+        headerLeft: () => (
+          <View style={{ marginLeft: 16 }}>
+            <Image source={require('../../../assets/logo.png')} style={{ width: 32, height: 32 }} resizeMode="contain" />
+          </View>
+        ),
         tabBarStyle: {
           backgroundColor: '#0f1930',
           borderTopColor: '#192540',
