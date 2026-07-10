@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Image } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Image, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { Heart, Eye, BarChart2, Clock, Sparkles, Share2, AlertCircle, Box } from 'lucide-react-native';
@@ -69,8 +69,9 @@ export default function DashboardHome() {
       setGeneratingDrafts(true);
       await dashboardService.suggestDrafts();
       router.push('/(tabs)/publisher');
-    } catch (err) {
-      // ignore
+    } catch (err: any) {
+      console.error('Generate Drafts Error:', err.response?.data || err.message);
+      Alert.alert('AI Error', err.response?.data?.message || err.message || 'Failed to generate drafts. Please check your Gemini API key.');
     } finally {
       setGeneratingDrafts(false);
     }

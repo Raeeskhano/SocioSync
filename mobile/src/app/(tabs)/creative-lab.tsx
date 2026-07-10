@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 
-import { aiService } from '../../api/aiService';
+import aiService from '../../api/aiService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
@@ -61,10 +61,13 @@ export default function CreativeLab() {
       setGeneratingText(true);
       const toneId = tones.find(t => t.name === selectedTone)?.id || 'humanized';
       const result = await aiService.generateCopy(textPrompt, toneId);
-      setTextOutput(result.generatedText);
+      // result is the data object: { generatedText, creationId }
+      const generated = result?.generatedText || result;
+      setTextOutput(typeof generated === 'string' ? generated : JSON.stringify(generated));
       fetchHistory();
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to generate copy.');
+      console.error('Generate Copy Error:', err.response?.data || err.message);
+      Alert.alert('AI Error', err.response?.data?.message || err.message || 'Failed to generate copy. Check your API key.');
     } finally {
       setGeneratingText(false);
     }
@@ -75,26 +78,35 @@ export default function CreativeLab() {
     try {
       setGeneratingImages(true);
 
+      // Step 1: Get Gemini-enhanced prompt from backend (optional)
       let enhancedPrompt = imagePrompt;
       try {
         const config = await aiService.generateImages(imagePrompt);
         if (config && config.enhancedPrompt) {
           enhancedPrompt = config.enhancedPrompt;
         }
-      } catch (enhanceErr) {}
+      } catch (enhanceErr) {
+        console.warn('[Image Gen] Prompt enhancement failed, using original:', enhanceErr);
+      }
 
+      // Step 2: Build Pollinations URL and set it — React Native <Image> will load it directly
       const seed = Math.floor(Math.random() * 1000000);
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&seed=${seed}`;
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhancedPrompt)}?width=768&height=768&nologo=true&enhance=true&seed=${seed}`;
       
+      console.log('[Image Gen] Pollinations URL:', pollinationsUrl);
       setImageOutputs([pollinationsUrl]);
 
+      // Step 3: Save to history in background
       try {
         await aiService.saveImageCreation(imagePrompt, [pollinationsUrl]);
         fetchHistory();
-      } catch (saveErr) {}
+      } catch (saveErr) {
+        console.warn('[Image Gen] Save failed (non-critical):', saveErr);
+      }
 
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to generate image.');
+      console.error('Generate Images Error:', err.response?.data || err.message);
+      Alert.alert('Image Error', err.response?.data?.message || err.message || 'Failed to generate image.');
     } finally {
       setGeneratingImages(false);
     }
