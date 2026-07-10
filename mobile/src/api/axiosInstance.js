@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 
 const axiosInstance = axios.create({
   baseURL: 'https://socio-sync-pi.vercel.app/api',
-  withCredentials: true,
+  withCredentials: false,
 });
 
 // Request interceptor: add token

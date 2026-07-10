@@ -21,7 +21,7 @@ const getFullMediaUrl = (mediaUrl) => {
     relativePath = `uploads/media/${path.basename(relativePath)}`;
   }
 
-  const baseUrl = process.env.BASE_URL || "http://localhost:5000";
+  const baseUrl = process.env.BASE_URL || "https://socio-sync-pi.vercel.app";
   const cleanBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   const cleanPath = relativePath.startsWith("/") ? relativePath.slice(1) : relativePath;
   return `${cleanBase}/${cleanPath}`;

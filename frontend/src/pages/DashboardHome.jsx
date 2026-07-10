@@ -23,7 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://socio-sync-pi.vercel.app';
 
 const IconLinkedin = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>

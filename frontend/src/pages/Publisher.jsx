@@ -45,7 +45,7 @@ import {
 import aiService from '../api/aiService';
 import publisherService from '../api/publisherService';
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://socio-sync-pi.vercel.app';
 
 const Publisher = () => {
   const dispatch = useDispatch();
