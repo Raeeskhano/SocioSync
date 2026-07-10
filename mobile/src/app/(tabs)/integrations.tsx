@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, RefreshControl, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { Globe, ShieldCheck, CheckCircle2, ShieldAlert, X, Zap } from 'lucide-react-native';
+import { Globe, ShieldCheck, CheckCircle2, ShieldAlert, X, Zap, Music2, Video, AtSign, Pin } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 
 import { fetchIntegrations, reconnectIntegration, disconnectIntegration } from '../../store/integrationsSlice';
@@ -26,6 +26,7 @@ export default function Integrations() {
   const [securityLogs, setSecurityLogs] = useState<any[]>([]);
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const unconnectedPlatforms = Object.keys(PlatformConfig).filter(
     (platformKey) => !connectedAccounts.some((acc: any) => acc.platform.toLowerCase() === platformKey)
@@ -190,15 +191,50 @@ export default function Integrations() {
           </View>
         )}
 
+        {upcomingPlatforms && upcomingPlatforms.length > 0 && (
+          <View className="mb-6">
+            <Text className="text-lg font-display font-bold text-on-surface mb-1">Upcoming Integrations</Text>
+            <Text className="text-xs text-on-surface-variant mb-4">We're constantly adding new ways to synchronize your content.</Text>
+            
+            <View className="flex-row flex-wrap gap-4">
+              {upcomingPlatforms.map((platform: any) => {
+                const IconComponent = { Music2, Video, AtSign, Pin }[platform.iconType as string] || Globe;
+                return (
+                  <View 
+                    key={platform.name}
+                    style={{ width: '47%' }}
+                    className="p-4 rounded-[1.5rem] bg-surface-container-low border border-ghost flex-col items-center gap-3"
+                  >
+                    <View className="w-10 h-10 rounded-xl bg-surface-container-high items-center justify-center">
+                      <IconComponent color="#6d758c" size={20} />
+                    </View>
+                    <Text className="text-sm font-bold text-on-surface text-center">{platform.name}</Text>
+                    <View className="bg-primary/10 px-2.5 py-1 rounded-full">
+                      <Text className="text-[9px] font-bold text-primary uppercase tracking-widest">{platform.status}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
         <Card level="high" className="flex-col gap-4 items-center text-center mt-4">
           <ShieldCheck color="#bd9dff" size={32} className="mb-2" />
           <Text className="font-display font-bold text-lg text-on-surface text-center">Enterprise Security</Text>
           <Text className="text-xs text-on-surface-variant text-center mb-2">
             SocioSync uses OAuth 2.0 and AES-256 encryption. We never store raw passwords.
           </Text>
-          <Button variant="secondary" className="w-full" onPress={handleOpenLogs}>
-            Audit Security Logs
-          </Button>
+          <View className="w-full flex-col gap-3">
+            <Button variant="secondary" className="w-full" onPress={handleOpenLogs}>
+              Audit Security Logs
+            </Button>
+            <TouchableOpacity onPress={() => setShowPrivacyModal(true)} className="items-center py-2">
+              <Text className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+                Privacy Policy
+              </Text>
+            </TouchableOpacity>
+          </View>
         </Card>
       </ScrollView>
 
@@ -240,6 +276,75 @@ export default function Integrations() {
                 ))
               )}
             </ScrollView>
+          </View>
+        </View>
+      )}
+
+      {showPrivacyModal && (
+        <View className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <View className="bg-surface-container-high w-full max-h-[85%] rounded-[2rem] p-6 flex-col">
+            <View className="flex-row justify-between items-center mb-6">
+              <View className="flex-row items-center gap-3">
+                <ShieldCheck color="#bd9dff" size={24} />
+                <View>
+                  <Text className="text-lg font-bold text-on-surface">SocioSync Privacy Policy</Text>
+                  <Text className="text-[10px] text-on-surface-variant uppercase tracking-widest">Effective Date: May 17, 2026</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+                <X color="#6d758c" size={24} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView className="flex-1 pr-2">
+              <View className="mb-4">
+                <Text className="font-bold text-on-surface text-sm mb-1.5">1. Information We Collect</Text>
+                <Text className="text-xs text-on-surface-variant leading-relaxed">
+                  SocioSync collects and processes data necessary to authenticate, connect, and schedule content to your social media channels. 
+                  This includes public profile information (such as your platform handle, name, avatar URL, and follower count) and secure authentication keys (OAuth access tokens).
+                </Text>
+              </View>
+
+              <View className="mb-4">
+                <Text className="font-bold text-on-surface text-sm mb-1.5">2. Secure Token Storage & Encryption</Text>
+                <Text className="text-xs text-on-surface-variant leading-relaxed">
+                  We prioritize your credential security. SocioSync employs industry-standard AES-256 encryption to encrypt your OAuth access tokens and refresh tokens at rest. 
+                  We never store your raw passwords, nor do we request access to your password credentials.
+                </Text>
+              </View>
+
+              <View className="mb-4">
+                <Text className="font-bold text-on-surface text-sm mb-1.5">3. Minimal Permissive Scopes</Text>
+                <Text className="text-xs text-on-surface-variant leading-relaxed">
+                  SocioSync requests only the minimal set of API scopes required to perform requested actions on your behalf:
+                  {"\n"}• LinkedIn: Publishing organic posts and fetching page subscriber/follower counts.
+                  {"\n"}• Facebook Pages / Instagram: Publishing image/video posts to pages and reading base metrics.
+                  {"\n"}• Twitter / X: Writing tweets and analyzing tweet impressions.
+                </Text>
+              </View>
+
+              <View className="mb-4">
+                <Text className="font-bold text-on-surface text-sm mb-1.5">4. Audit Monitoring</Text>
+                <Text className="text-xs text-on-surface-variant leading-relaxed">
+                  To keep you fully in control of your connections, we log every security event (like account linking, manual synchronization requests, and disconnect events). 
+                  These logs are immediately viewable to you inside the Audit Security Logs interface.
+                </Text>
+              </View>
+
+              <View className="mb-4">
+                <Text className="font-bold text-on-surface text-sm mb-1.5">5. Zero Third-Party Sharing</Text>
+                <Text className="text-xs text-on-surface-variant leading-relaxed">
+                  SocioSync does not rent, sell, or trade your social media content, audience insights, or profile metrics with third-party advertisers or data brokers. 
+                  All analytical data synthesized in your workspace is private to your authenticated user account.
+                </Text>
+              </View>
+            </ScrollView>
+            
+            <View className="mt-4 pt-4 border-t border-ghost">
+              <Button variant="primary" className="w-full py-3" onPress={() => setShowPrivacyModal(false)}>
+                I Understand
+              </Button>
+            </View>
           </View>
         </View>
       )}
