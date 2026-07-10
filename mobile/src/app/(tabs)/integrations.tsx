@@ -44,7 +44,13 @@ export default function Integrations() {
 
   const handleConnect = async (platform: string) => {
     try {
-      const { url } = await integrationService.getAuthUrl(platform);
+      const response = await integrationService.reconnect(platform);
+      
+      if (!response || !response.redirectUrl) {
+        throw new Error('No redirect URL returned');
+      }
+
+      const url = `${API_BASE}${response.redirectUrl}`;
       
       const result = await WebBrowser.openAuthSessionAsync(
         url,
@@ -56,6 +62,7 @@ export default function Integrations() {
         dispatch(fetchIntegrations());
       }
     } catch (err: any) {
+      console.error(err);
       Alert.alert('Error', `Failed to connect ${platform}`);
     }
   };
